@@ -126,14 +126,24 @@ def _find_pc_exe_near_registered_path(registered_path):
 
 
 def calculate_pc_exe_path(running_path):
-    if sys.platform == "darwin":
-        if running_path and os.path.exists(running_path):
-            return running_path
-        return _find_macos_pc_exe()
     if running_path is None:
-        return _find_most_recently_run_pc_exe() or _find_pc_exe_from_registry()
-    game_exe_folder = Path(running_path).parents[3]
-    return str(game_exe_folder / "Wuthering Waves.exe")
+        pc_exe = _find_most_recently_run_pc_exe() or _find_pc_exe_from_registry()
+        if pc_exe:
+            return pc_exe
+        if sys.platform == "darwin":
+            return _find_macos_pc_exe()
+        return None
+    if sys.platform == "darwin" and os.path.exists(running_path):
+        return running_path
+    try:
+        from pathlib import PureWindowsPath
+        p = PureWindowsPath(running_path) if "\\" in running_path else Path(running_path)
+        game_exe_folder = p.parents[3]
+        return str(game_exe_folder / "Wuthering Waves.exe")
+    except Exception:
+        if sys.platform == "darwin":
+            return _find_macos_pc_exe()
+        return None
 
 
 def blur_area(width, height):
@@ -143,10 +153,6 @@ def blur_area(width, height):
 
 
 basic_config_option = create_basic_options(enable_blur=True)
-basic_config_option.default_config['Game Package'] = 'hd'
-basic_config_option.config_type['Game Package'] = {
-    'type': 'drop_down', 'options': ['sd', 'hd', 'uhd'],
-}
 
 key_config_option = ConfigOption('Game Hotkey', {
     'Echo Key': 'q',
@@ -186,7 +192,10 @@ config = {
     'blur_area': blur_area,
     'gui_icon': 'icons/icon.png',
     'global_configs': [basic_config_option, key_config_option, char_config_option, monthly_card_config_option],
-    'custom_tabs': [["src.gui.CharacterCodeTab", "CharacterCodeTab"]],
+    'custom_tabs': [
+        ["src.gui.CharacterCodeTab", "CharacterCodeTab"],
+        ["src.gui.MultiAccountConfigTab", "MultiAccountConfigTab"],
+    ],
     'ocr': {
         'lib': 'onnxocr',
         'auto_simplify': True,
@@ -195,6 +204,7 @@ config = {
             'use_npu': sys.platform == 'win32',
         }
     },
+    'plugin': True,
     'my_app': ['src.globals', 'Globals'],
     'start_timeout': 120,  # default 60
     'wait_until_settle_time': 0,
@@ -207,11 +217,12 @@ config = {
         'feature_processor': process_feature,
         'vcenter_features': ['monthly_card', 'skip_dialog_check'],
         'hcenter_features': ['monthly_card', 'suisui_forte3', 'message_dialog', 'claim_stamina_sign',
-                             'skip_dialog_check', 'login_close', 'garden_confirm', 'garden_continue_game',
+                             'skip_dialog_check', 'skip_quest_confirm', 'skip_quest_confirm_new',
+                             'login_close', 'garden_confirm', 'garden_continue_game',
                              'garden_unpause', 'garden_get_gold', 'garden_get_purple', 'garden_get_skip',
                              'garden_not_interested_confirm', 'garden_not_interested', 'a_garden_back',
                              'garden_get_confirm_gray', 'the_garden_max', 'garden_shop_close', 'garden_new_stage',
-                             'a_garden_restart', 'suisui_forte2', 'suisui_e1', 'e_forte', 'f_break_full']
+                             'a_garden_restart', 'suisui_forte2', 'e_forte', 'f_break_full']
     },
     'windows': {  # required  when supporting windows/macOS desktop game
         'top_hwnd_class': [re.compile('CAgreementDlg'), re.compile('CLoginDlg_P_'),
@@ -287,10 +298,12 @@ config = {
         ["src.task.ForgeryTask", "ForgeryTask"],
         ["src.task.SimulationTask", "SimulationTask"],
         ["src.task.MultiAccountDailyTask", "MultiAccountDailyTask"],
+        ["src.task.MultiAccountConfigTask", "MultiAccountConfigTask"],
         ["src.task.MergeEchoTask", "MergeEchoTask"],
         ["src.task.EnhanceEchoTask", "EnhanceEchoTask"],
         ["src.task.ChangeEchoTask", "ChangeEchoTask"],
         ["src.task.GardenTask", "GardenTask"],
+        ["src.task.TacetEliminationTask", "TacetEliminationTask"],
         # ["src.task.DiagnosisTask", "DiagnosisTask"],
     ], 'trigger_tasks': [
         ["src.task.AutoCombatTask", "AutoCombatTask"],

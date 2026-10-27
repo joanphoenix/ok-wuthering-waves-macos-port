@@ -8,6 +8,11 @@ import config
 
 class TestCalculatePcExePath(unittest.TestCase):
 
+    def setUp(self):
+        patcher = patch.object(config, "_find_macos_pc_exe", return_value=None)
+        self.mock_macos_exe = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_none_path_uses_most_recently_run_executable(self):
         expected = r"C:\Games\Wuthering Waves.exe"
 
@@ -58,6 +63,13 @@ class TestCalculatePcExePath(unittest.TestCase):
             result = config._find_pc_exe_near_registered_path(str(launcher))
 
         self.assertEqual(str(game_exe), result)
+
+    def test_macos_pc_exe_path(self):
+        self.mock_macos_exe.return_value = "/Applications/Wuthering Waves.app"
+        with patch.object(config, "_find_most_recently_run_pc_exe", return_value=None):
+            with patch.object(config, "_find_pc_exe_from_registry", return_value=None):
+                result = config.calculate_pc_exe_path(None)
+        self.assertEqual("/Applications/Wuthering Waves.app", result)
 
 
 if __name__ == "__main__":

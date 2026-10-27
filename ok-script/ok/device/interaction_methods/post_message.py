@@ -22,7 +22,17 @@ if sys.platform != "win32":
 
 
     class PostMessageInteraction(MacOSQuartzInteraction):
-        pass
+        def click(self, x=-1, y=-1, move_back=False, name=None, down_time=0.01, move=True, key="left"):
+            if hasattr(self, 'post') and callable(getattr(self, 'post')):
+                w_con = sys.modules.get('win32con')
+                btn_down = getattr(w_con, 'WM_LBUTTONDOWN', 0x0201) if key == "left" else 0
+                btn_up = getattr(w_con, 'WM_LBUTTONUP', 0x0202) if key == "left" else 0
+                long_pos = self.update_mouse_pos(x, y) if hasattr(self, 'update_mouse_pos') else 0
+                self.post(btn_down, 1, long_pos)
+                time.sleep(down_time)
+                self.post(btn_up, 0, long_pos)
+                return
+            super().click(x, y, move_back=move_back, name=name, down_time=down_time, move=move, key=key)
 else:
     class PostMessageInteraction(BaseInteraction):
 

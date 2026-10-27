@@ -1,13 +1,6 @@
 import math
 import sys
 
-if sys.platform == "win32":
-    import win32api
-    _get_cursor_pos = win32api.GetCursorPos
-    _set_cursor_pos = win32api.SetCursorPos
-else:
-    from ok.device.interaction_methods.macos_quartz import get_cursor_pos as _get_cursor_pos, set_cursor_pos as _set_cursor_pos
-
 from ok import TriggerTask, Logger
 
 logger = Logger.get_logger(__name__)
@@ -41,7 +34,15 @@ class MouseResetTask(TriggerTask):
         if not self.enabled or self.is_browser():
             return
         try:
-            current_position = _get_cursor_pos()
+            if sys.platform == "darwin" and 'win32api' not in sys.modules:
+                from ok.device.interaction_methods.macos_quartz import get_cursor_pos, set_cursor_pos
+                current_position = get_cursor_pos()
+                move_back = set_cursor_pos
+            else:
+                import win32api
+                current_position = win32api.GetCursorPos()
+                move_back = getattr(win32api, 'SetCursorPos', None)
+
             if self.mouse_pos and self.hwnd and self.hwnd.exists and not self.hwnd.visible and self.executor.interaction and self.executor.interaction.capture:
                 center_pos = self.executor.interaction.capture.get_abs_cords(self.width_of_screen(0.5),
                                                                              self.height_of_screen(0.5))
@@ -55,7 +56,8 @@ class MouseResetTask(TriggerTask):
                 )
                 if distance > 200 and close_to_center:
                     logger.info(f'move mouse back {self.mouse_pos}')
-                    _set_cursor_pos(self.mouse_pos)
+                    if move_back:
+                        move_back(self.mouse_pos)
                     self.mouse_pos = self.mouse_pos
                     self.post_mouse_reset(1)
                     return
