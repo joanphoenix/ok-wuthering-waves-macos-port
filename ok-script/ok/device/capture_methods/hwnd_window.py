@@ -332,7 +332,7 @@ class HwndWindow:
                         pos_valid = check_pos(x, y, int(round(width / scale)), int(round(height / scale)), self.monitors_bounds)
                     else:
                         pos_valid = check_pos(x, y, width, height, self.monitors_bounds)
-                    if isinstance(self.device_manager.capture_method,
+                    if sys.platform == "win32" and isinstance(self.device_manager.capture_method,
                                   BaseWindowsCaptureMethod) and not pos_valid and pos_valid != self.pos_valid and self.device_manager.executor is not None:
                         if self.device_manager.executor.pause():
                             logger.error(f'og.executor.pause pos_invalid: {x, y, width, height}')

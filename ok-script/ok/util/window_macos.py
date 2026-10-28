@@ -427,7 +427,7 @@ def find_hwnd(title, exe_names, frame_width, frame_height, player_id=-1, class_n
     try:
         Quartz = _quartz()
         window_list = Quartz.CGWindowListCopyWindowInfo(
-            Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
+            Quartz.kCGWindowListOptionAll | Quartz.kCGWindowListExcludeDesktopElements,
             Quartz.kCGNullWindowID,
         )
         if not window_list:
@@ -445,7 +445,7 @@ def find_hwnd(title, exe_names, frame_width, frame_height, player_id=-1, class_n
             bounds = w.get(Quartz.kCGWindowBounds, {})
             bw = int(round(float(bounds.get("Width", 0))))
             bh = int(round(float(bounds.get("Height", 0))))
-            if bw <= 50 or bh <= 50:
+            if bw < 640 or bh < 360:
                 continue
 
             if title:
