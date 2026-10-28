@@ -3,7 +3,6 @@ import time
 import numpy as np
 
 from ok.device.capture_methods.base import BaseWindowsCaptureMethod
-from ok.device.capture_methods.bitblt_utils import get_crop_point
 from ok.util.logger import Logger
 
 logger = Logger.get_logger(__name__)
@@ -78,19 +77,18 @@ class MacOSQuartzCaptureMethod(BaseWindowsCaptureMethod):
                 img = buf[: height * bytes_per_row].reshape((height, row_pixels, 4))
                 img = img[:, :width, :3].copy()
 
-                # Crop title bar or borders if window frame is larger than client area
-                target_w = self.hwnd_window.real_width or self.hwnd_window.width
-                target_h = self.hwnd_window.real_height or self.hwnd_window.height
-
-                if target_w > 0 and target_h > 0 and (width > target_w or height > target_h):
-                    if self.hwnd_window.real_x_offset != 0 or self.hwnd_window.real_y_offset != 0:
-                        x = self.hwnd_window.real_x_offset
-                        y = self.hwnd_window.real_y_offset
-                    else:
-                        x, y = get_crop_point(width, height, target_w, target_h)
-                    x = max(0, min(x, width - target_w))
-                    y = max(0, min(y, height - target_h))
-                    img = img[y : y + target_h, x : x + target_w]
+                # Window discovery and capture run on separate threads. During
+                # animations, discard frames until backing geometry agrees;
+                # never crop a new frame to a stale miniature discovery size.
+                expected_w = self.hwnd_window.window_width
+                expected_h = self.hwnd_window.window_height
+                if (width, height) != (expected_w, expected_h):
+                    return None
+                target_w = self.hwnd_window.client_width
+                target_h = self.hwnd_window.client_height
+                if not (0 < target_w <= width and 0 < target_h <= height):
+                    return None
+                img = img[height - target_h:height, :target_w]
 
                 return img
             except Exception as e:

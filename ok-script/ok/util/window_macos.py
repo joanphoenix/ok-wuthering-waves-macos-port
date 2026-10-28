@@ -173,10 +173,7 @@ def _estimate_title_bar_points(logical_w: int, logical_h: int) -> int:
 
 
 def _get_window_scale_and_title_bar(x: float, y: float, logical_w: int, logical_h: int, hwnd: int = 0) -> Tuple[float, int]:
-    """Return (scaling, title_bar_points) for a window, cached by (hwnd, logical_w, logical_h)."""
-    cache_key = (int(hwnd), int(logical_w), int(logical_h))
-    if hwnd > 0 and cache_key in _window_metrics_cache:
-        return _window_metrics_cache[cache_key]
+    """Cache title detection only after checking the current backing image size."""
 
     scaling = 2.0
     title_pt = 0
@@ -191,6 +188,10 @@ def _get_window_scale_and_title_bar(x: float, y: float, logical_w: int, logical_
             )
             if cg_img is not None:
                 px_w = Quartz.CGImageGetWidth(cg_img)
+                px_h = Quartz.CGImageGetHeight(cg_img)
+                cache_key = (int(hwnd), x, y, logical_w, logical_h, px_w, px_h)
+                if cache_key in _window_metrics_cache:
+                    return _window_metrics_cache[cache_key]
                 if px_w > 0:
                     scale = round(px_w / float(logical_w), 2)
                     if scale >= 1.0:
@@ -297,10 +298,6 @@ def bring_window_to_front(hwnd: int) -> bool:
         pid = get_window_pid(hwnd)
         if pid <= 0:
             return False
-        script = f'tell application "System Events" to set frontmost of first process whose unix id is {pid} to true'
-        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=3)
-        if res.returncode == 0:
-            return True
         AppKit = _appkit()
         app = AppKit.NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
         if app is not None:

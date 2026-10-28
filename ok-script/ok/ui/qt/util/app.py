@@ -30,47 +30,8 @@ def init_app_config():
         QFont.insertSubstitutions('Consolas', ['Menlo', 'Monaco', 'Courier New'])
         QFont.insertSubstitutions('Courier', ['Menlo', 'Monaco', 'Courier New'])
 
-        # Hook qfluentwidgets stylesheet loader to inject native Apple fonts
-        import qfluentwidgets.common.style_sheet as qss_mod
-        orig_get_stylesheet = qss_mod.getStyleSheetFromFile
-
-        def mac_get_stylesheet_from_file(file):
-            qss = orig_get_stylesheet(file)
-            qss = qss.replace("'Segoe UI'", "'.AppleSystemUIFont', 'PingFang SC'")
-            qss = qss.replace('"Segoe UI"', "'.AppleSystemUIFont', 'PingFang SC'")
-            qss = qss.replace("'Segoe UI SemiBold'", "'.AppleSystemUIFont', 'PingFang SC'")
-            qss = qss.replace('"Segoe UI SemiBold"', "'.AppleSystemUIFont', 'PingFang SC'")
-            qss = qss.replace("'Consolas'", "'Menlo', 'Monaco'")
-            qss = qss.replace('"Consolas"', "'Menlo', 'Monaco'")
-            qss += """
-SpinBox::up-button, SpinBox::down-button,
-DoubleSpinBox::up-button, DoubleSpinBox::down-button,
-CompactSpinBox::up-button, CompactSpinBox::down-button,
-CompactDoubleSpinBox::up-button, CompactDoubleSpinBox::down-button,
-QSpinBox::up-button, QSpinBox::down-button,
-QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
-    width: 0px;
-    height: 0px;
-    border: none;
-}
-"""
-            return qss
-
-        qss_mod.getStyleSheetFromFile = mac_get_stylesheet_from_file
-
-        # Patch qfluentwidgets SpinBoxBase to prevent Qt macOS stylesheet shrinkage bug
-        from qfluentwidgets.components.widgets.spin_box import SpinBoxBase, CompactSpinBox
-        from PySide6.QtWidgets import QSpinBox
-
-        orig_spin_base_init = SpinBoxBase.__init__
-
-        def _mac_spin_base_init(self, *args, **kwargs):
-            orig_spin_base_init(self, *args, **kwargs)
-            self.setButtonSymbols(QSpinBox.UpDownArrows)
-            rm = 30 if isinstance(self, CompactSpinBox) else 80
-            self.lineEdit().setTextMargins(10, 0, rm, 0)
-
-        SpinBoxBase.__init__ = _mac_spin_base_init
+        from ok.ui.qt.util.macos_compat import install_macos_compatibility
+        install_macos_compatibility()
 
     app = QApplication.instance()
     if app is None:
@@ -81,17 +42,6 @@ QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
 
     if sys.platform == "darwin":
         app.setFont(QFont('.AppleSystemUIFont', 13))
-        app.setStyleSheet(app.styleSheet() + """
-            QAbstractSpinBox::up-button, QAbstractSpinBox::down-button,
-            SpinBox::up-button, SpinBox::down-button,
-            DoubleSpinBox::up-button, DoubleSpinBox::down-button,
-            CompactSpinBox::up-button, CompactSpinBox::down-button,
-            CompactDoubleSpinBox::up-button, CompactDoubleSpinBox::down-button {
-                width: 0px;
-                height: 0px;
-                border: none;
-            }
-        """)
 
     locale = cfg.get(cfg.language).value
     translator = FluentTranslator(locale)

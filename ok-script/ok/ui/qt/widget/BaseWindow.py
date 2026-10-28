@@ -2,10 +2,29 @@
 
 from PySide6.QtCore import Qt, QSize, QRect
 from PySide6.QtGui import QPainter, QColor
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QWidget
+import os
+import sys
 from qfluentwidgets import qconfig, isDarkTheme
 from qfluentwidgets.common.animation import BackgroundAnimationWidget
 from qfluentwidgets.components.widgets.frameless_window import FramelessWindow
+
+# Offscreen/minimal Qt handles are not NSView pointers. Keep widget behavior
+# without asking the native frameless backend to dereference those handles.
+if sys.platform == 'darwin' and os.environ.get('QT_QPA_PLATFORM', '').split(':')[0] in {'offscreen', 'minimal'}:
+    class FramelessWindow(QWidget):
+        def setTitleBar(self, title_bar):
+            if hasattr(self, 'titleBar'):
+                self.titleBar.hide()
+                self.titleBar.deleteLater()
+            self.titleBar = title_bar
+            title_bar.setParent(self)
+            title_bar.setGeometry(0, 0, self.width(), 32)
+
+        def resizeEvent(self, event):
+            super().resizeEvent(event)
+            if hasattr(self, 'titleBar'):
+                self.titleBar.resize(self.width(), self.titleBar.height())
 
 from ok import og
 from ok.ui.qt.widget.BaseLoading import BaseLoading

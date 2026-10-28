@@ -1,6 +1,6 @@
 # ok-wuthering-waves-macos-port
 
-Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool for *Wuthering Waves* (`ok-wuthering-waves` & `ok-script`). Fully synced with upstream **v3.7.7** (Suoming & Douling trigram combat).
+Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool for *Wuthering Waves* (`ok-wuthering-waves` & `ok-script`). Includes upstream **v3.7.12** source changes, with the required template-loading support backported into the bundled Mac framework. Live gameplay validation is pending.
 
 ---
 
@@ -20,10 +20,10 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
 
 - **High-Performance macOS Capture & Inference**:
   - **Capture**: Native `CoreGraphics` / `Quartz` screen capture pipeline replacing Windows BitBlt/GDI/WGC.
-  - **Inference**: YOLOv8 and PaddleOCR inference running natively on Apple Silicon Metal / CoreML.
+  - **Inference**: YOLOv8 uses CoreML when available, with CPU fallback. ONNX OCR currently runs on CPU.
   - **Process Detection**: Direct integration with the native macOS client (`Client-Mac-Shipping`).
 
-- **Upstream Gameplay & Character Support (v3.7.7)**:
+- **Gameplay & Character Support**:
   - Full support for **Suoming (锁瞑)** with heavy attack rotation and burst sequences.
   - Dynamic Trigram (卦象栏) detection for **Douling (卜灵)** charged attacks.
   - Safe auto-combat state resets across disable/restart and healer switch lockout fallbacks.
@@ -34,7 +34,7 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
 
 - **Operating System**: macOS 13.0+ (Ventura, Sonoma, Sequoia, or later)
 - **Architecture**: Apple Silicon (`arm64` — M1, M2, M3, M4, M5 Pro, Max, Ultra)
-- **Python**: Python 3.10+ (Python 3.12 recommended)
+- **Python**: Python 3.12
 - **Game**: *Wuthering Waves* installed at `/Applications/Wuthering Waves.app`
 
 ---
@@ -52,7 +52,7 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
    chmod +x run_macos.sh
    ./run_macos.sh
    ```
-   *The launcher will automatically configure the Python virtual environment and native dependencies on first run.*
+   *The launcher configures Python 3.12 dependencies on first run, retries interrupted installations, and refreshes them when dependency settings change.*
 
 3. **Alternative Launch Modes**:
    - **Browser Web UI Mode**:
@@ -65,6 +65,10 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
      ```
 
 ---
+
+## Input focus
+
+Keep the game in the foreground while automation runs. Input stops when another app gains focus; held keys and buttons are released to the game process. Return to the game before restarting the task.
 
 ## Permissions Notice
 

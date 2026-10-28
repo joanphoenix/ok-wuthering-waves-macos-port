@@ -3,6 +3,8 @@ import time
 from ok.device.capture_methods.base import BaseCaptureMethod
 from ok.device.interaction_methods.base import BaseInteraction
 from ok.util.logger import Logger
+from ok.task.exceptions import TaskDisabledException
+from ok.util.window_macos import get_window_pid
 
 logger = Logger.get_logger(__name__)
 
@@ -64,7 +66,9 @@ class MacOSQuartzInteraction(BaseInteraction):
         super().__init__(capture)
         self.hwnd_window = hwnd_window
         self.mouse_pos = (0, 0)
-        self.check_clickable = False
+        self.check_clickable = True
+        self._held_keys = set()
+        self._held_buttons = {}
 
     @property
     def hwnd(self):
@@ -73,9 +77,31 @@ class MacOSQuartzInteraction(BaseInteraction):
         return self.hwnd_window.top_hwnd if self.hwnd_window.top_hwnd else self.hwnd_window.hwnd
 
     def clickable(self):
-        if self.check_clickable and self.hwnd_window is not None:
-            return self.hwnd_window.is_foreground()
-        return True
+        return bool(self.hwnd_window and self.hwnd_window.is_foreground())
+
+    def _require_foreground(self):
+        if not self.clickable():
+            self.on_destroy()
+            raise TaskDisabledException('Game lost focus; input stopped')
+
+    def _post_to_game(self, event, release=False):
+        # Unreal's game input needs the HID event stream. Recheck focus at
+        # dispatch instead of relying only on the public method's entry check.
+        if self.clickable():
+            Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
+        elif release:
+            # Release held game inputs without sending new actions to another app.
+            pid = get_window_pid(self.hwnd)
+            if pid > 0:
+                Quartz.CGEventPostToPid(pid, event)
+        else:
+            self._require_foreground()
+
+    def on_destroy(self):
+        for key in tuple(self._held_keys):
+            self.send_key_up(key)
+        for button in tuple(self._held_buttons):
+            self.mouse_up(x=-1, y=-1, key=button)
 
     def should_capture(self):
         return True
@@ -111,12 +137,22 @@ class MacOSQuartzInteraction(BaseInteraction):
     def _post_mouse_event(self, event_type, abs_x, abs_y, button=0, dx=0, dy=0):
         if Quartz is None:
             return
+        up_types = {Quartz.kCGEventLeftMouseUp, Quartz.kCGEventRightMouseUp, Quartz.kCGEventOtherMouseUp}
+        if event_type not in up_types:
+            self._require_foreground()
+        button_name = {Quartz.kCGMouseButtonLeft: 'left', Quartz.kCGMouseButtonRight: 'right', Quartz.kCGMouseButtonCenter: 'middle'}.get(button)
         try:
             ev = Quartz.CGEventCreateMouseEvent(None, event_type, (float(abs_x), float(abs_y)), button)
             if dx != 0 or dy != 0:
                 Quartz.CGEventSetIntegerValueField(ev, Quartz.kCGMouseEventDeltaX, int(dx))
                 Quartz.CGEventSetIntegerValueField(ev, Quartz.kCGMouseEventDeltaY, int(dy))
-            Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+            self._post_to_game(ev, release=event_type in up_types)
+            if event_type in up_types:
+                self._held_buttons.pop(button_name, None)
+            elif event_type in {Quartz.kCGEventLeftMouseDown, Quartz.kCGEventRightMouseDown, Quartz.kCGEventOtherMouseDown}:
+                self._held_buttons[button_name] = (abs_x, abs_y)
+        except TaskDisabledException:
+            raise
         except Exception as e:
             logger.error(f"_post_mouse_event error: {e}")
 
@@ -127,48 +163,35 @@ class MacOSQuartzInteraction(BaseInteraction):
         self.send_key_up(key)
 
     def send_key_down(self, key, activate=True):
+        # Activation is explicit at task startup; never steal focus back from
+        # another app while a task is running, even with activate=True.
+        self._require_foreground()
         key_str = str(key).lower()
         keycode = MAC_KEYCODE_MAP.get(key_str)
-        if Quartz is not None and keycode is not None:
-            try:
-                ev = Quartz.CGEventCreateKeyboardEvent(None, keycode, True)
-                Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
-                return
-            except Exception as e:
-                logger.error(f"CGEvent key_down error for {key}: {e}")
-        try:
-            from pynput import keyboard
-            controller = keyboard.Controller()
-            controller.press(key_str)
-        except Exception as e:
-            logger.error(f"Fallback key_down error for {key}: {e}")
+        if Quartz is None or keycode is None:
+            raise ValueError(f'Unsupported macOS key: {key}')
+        self._post_to_game(Quartz.CGEventCreateKeyboardEvent(None, keycode, True))
+        self._held_keys.add(key_str)
 
     def send_key_up(self, key):
         key_str = str(key).lower()
         keycode = MAC_KEYCODE_MAP.get(key_str)
         if Quartz is not None and keycode is not None:
-            try:
-                ev = Quartz.CGEventCreateKeyboardEvent(None, keycode, False)
-                Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
-                return
-            except Exception as e:
-                logger.error(f"CGEvent key_up error for {key}: {e}")
-        try:
-            from pynput import keyboard
-            controller = keyboard.Controller()
-            controller.release(key_str)
-        except Exception as e:
-            logger.error(f"Fallback key_up error for {key}: {e}")
+            self._post_to_game(Quartz.CGEventCreateKeyboardEvent(None, keycode, False), release=True)
+        self._held_keys.discard(key_str)
 
     def input_text(self, text, activate=True):
-        try:
-            from pynput import keyboard
-            controller = keyboard.Controller()
-            controller.type(str(text))
-        except Exception as e:
-            logger.error(f"input_text error: {e}")
+        for char in str(text):
+            self._require_foreground()
+            if Quartz is None:
+                raise RuntimeError('Quartz is unavailable')
+            for down in (True, False):
+                event = Quartz.CGEventCreateKeyboardEvent(None, 0, down)
+                Quartz.CGEventKeyboardSetUnicodeString(event, len(char.encode('utf-16-le')) // 2, char)
+                self._post_to_game(event, release=not down)
 
     def move(self, x, y, down_btn=0):
+        self._require_foreground()
         abs_x, abs_y = self._resolve_abs_coords(x, y)
         if Quartz is not None:
             event_type = Quartz.kCGEventLeftMouseDragged if down_btn else Quartz.kCGEventMouseMoved
@@ -176,6 +199,7 @@ class MacOSQuartzInteraction(BaseInteraction):
         return (abs_x, abs_y)
 
     def move_mouse_relative(self, dx, dy):
+        self._require_foreground()
         cur_x, cur_y = get_cursor_pos()
         new_x, new_y = cur_x + int(dx), cur_y + int(dy)
         if Quartz is not None:
@@ -190,6 +214,7 @@ class MacOSQuartzInteraction(BaseInteraction):
             self.mouse_pos = (new_x, new_y)
 
     def scroll(self, x, y, scroll_amount):
+        self._require_foreground()
         if x > 0 and y > 0:
             self.move(x, y)
             time.sleep(0.01)
@@ -197,15 +222,19 @@ class MacOSQuartzInteraction(BaseInteraction):
             try:
                 sign = 1 if scroll_amount > 0 else (-1 if scroll_amount < 0 else 0)
                 for _ in range(abs(int(scroll_amount))):
+                    self._require_foreground()
                     ev = Quartz.CGEventCreateScrollWheelEvent(
                         None, Quartz.kCGScrollEventUnitLine, 1, sign
                     )
-                    Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
+                    self._post_to_game(ev)
                     time.sleep(0.002)
+            except TaskDisabledException:
+                raise
             except Exception as e:
                 logger.error(f"scroll error: {e}")
 
     def swipe(self, x1, y1, x2, y2, duration=3, settle_time=0):
+        self._require_foreground()
         abs_x1, abs_y1 = self._resolve_abs_coords(x1, y1)
         abs_x2, abs_y2 = self._resolve_abs_coords(x2, y2)
 
@@ -245,6 +274,7 @@ class MacOSQuartzInteraction(BaseInteraction):
         return Quartz.kCGEventLeftMouseDown, Quartz.kCGEventLeftMouseUp, Quartz.kCGMouseButtonLeft
 
     def click(self, x=-1, y=-1, move_back=False, name=None, down_time=0.01, move=True, key="left"):
+        self._require_foreground()
         super().click(x, y, name=name)
         prev_pos = get_cursor_pos() if move_back else None
         abs_x, abs_y = self._resolve_abs_coords(x, y)
@@ -258,7 +288,7 @@ class MacOSQuartzInteraction(BaseInteraction):
         time.sleep(down_time)
         self._post_mouse_event(up_type, abs_x, abs_y, btn)
 
-        if prev_pos is not None:
+        if prev_pos is not None and self.clickable():
             set_cursor_pos(prev_pos)
 
     def right_click(self, x=-1, y=-1, move_back=False, name=None, down_time=0.01):
@@ -268,6 +298,7 @@ class MacOSQuartzInteraction(BaseInteraction):
         self.click(x, y, move_back=move_back, name=name, down_time=down_time, key="middle")
 
     def mouse_down(self, x=-1, y=-1, name=None, key="left"):
+        self._require_foreground()
         abs_x, abs_y = self._resolve_abs_coords(x, y)
         if x != -1 and y != -1:
             self.move(x, y)
