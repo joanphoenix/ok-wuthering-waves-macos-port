@@ -40,7 +40,7 @@ class ForgeryTask(DomainTask):
         else:
             must_use = 0
         if config is None:
-            config = self.config
+            config = self.config or self.default_config
         raw_serial = config.get('Which Forgery Challenge to Farm', 1)
         if isinstance(raw_serial, str):
             match = re.search(r'\d+', raw_serial)

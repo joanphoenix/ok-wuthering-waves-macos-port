@@ -994,15 +994,26 @@ class BaseWWTask(BaseTask):
         self.log_info(f'open_boss_book {name}')
         self.sleep(0.4)
 
+        if name == 'wuyin':
+            try:
+                box = self.box_of_screen(0.10, 0.20, 0.35, 0.90) if getattr(self, 'executor', None) else None
+                wuyin_template = self.find_one('book_wuyin', box=box, threshold=0.7) if getattr(self, 'find_one', None) else None
+                if wuyin_template:
+                    self.log_info(f'open_boss_book {name} matched template book_wuyin at ({wuyin_template.x}, {wuyin_template.y})')
+                    self.click_box(wuyin_template, after_sleep=after_sleep)
+                    return
+            except Exception as e:
+                self.log_debug(f'open_boss_book {name} template match skipped: {e}')
+
         # Tab keywords for OCR targeting in Material Collection / Periodic Challenges menu
         tab_keywords = {
-            'moni': ['Simulation Challenge', '模拟领域'],
-            'ningsu': ['Forgery Challenge', '凝素领域'],
+            'moni': ['Simulation Challenge', '模拟领域', 'Simulation'],
+            'ningsu': ['Forgery Challenge', '凝素领域', 'Forgery'],
             'qiangdi': ['Boss Challenge', '强敌讨伐'],
-            'zhange': ['Weekly Challenge', '战歌重奏'],
-            'wuyin': ['Tacet Suppression', '无音清剿'],
-            'canxiang': ['Tacet Discord Nest', '残象巢穴'],
-            'mengyan': ['Nightmare Purification', '梦魇净化'],
+            'zhange': ['Weekly Challenge', '战歌重奏', 'Weekly'],
+            'wuyin': ['Tacet Suppression', '无音清剿', 'Suppression', '无音'],
+            'canxiang': ['Tacet Discord Nest', '残象巢穴', 'Discord Nest', '残象'],
+            'mengyan': ['Nightmare Purification', '梦魇净化', 'Nightmare', '梦魇'],
         }
 
         # Calibrated coordinates (Material Collection menu has 8 rows of height ~0.10):
@@ -1031,7 +1042,12 @@ class BaseWWTask(BaseTask):
                 ocr_boxes = self.ocr(0.10, 0.10, 0.35, 0.95)
                 if ocr_boxes:
                     for box in ocr_boxes:
-                        if any(kw.lower() in box.name.lower() for kw in keywords):
+                        bname = box.name.lower()
+                        if any(kw.lower() in bname or (len(bname) >= 4 and bname in kw.lower()) for kw in keywords):
+                            if name == 'wuyin' and any(bad in bname for bad in ('nest', 'discord', '残象', '巢穴')):
+                                continue
+                            if name == 'canxiang' and any(bad in bname for bad in ('suppression', '清剿')):
+                                continue
                             target_box = box
                             self.log_info(f'open_boss_book {name} matched OCR box: {box.name} at ({box.x}, {box.y})')
                             break

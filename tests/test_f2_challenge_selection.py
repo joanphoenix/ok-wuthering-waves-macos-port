@@ -69,6 +69,27 @@ class TestF2ChallengeSelection(unittest.TestCase):
         task.open_boss_book('wuyin')
         task.click_box.assert_called_once_with(mock_box, after_sleep=2)
 
+        # Test OCR match on split word (e.g. 'Suppression')
+        mock_box_split = Box(100, 600, 200, 50, name='Suppression')
+        task.ocr = MagicMock(return_value=[mock_box_split])
+        task.click_box.reset_mock()
+        task.open_boss_book('wuyin')
+        task.click_box.assert_called_once_with(mock_box_split, after_sleep=2)
+
+        # Test rejection of Tacet Discord Nest when searching for wuyin
+        nest_box = Box(100, 700, 200, 50, name='Tacet Discord Nest')
+        task.ocr = MagicMock(return_value=[nest_box, mock_box_split])
+        task.click_box.reset_mock()
+        task.open_boss_book('wuyin')
+        task.click_box.assert_called_once_with(mock_box_split, after_sleep=2)
+
+        # Test template match priority for book_wuyin
+        template_box = Box(100, 500, 50, 50, name='book_wuyin')
+        task.find_one = MagicMock(return_value=template_box)
+        task.click_box.reset_mock()
+        task.open_boss_book('wuyin')
+        task.click_box.assert_called_once_with(template_box, after_sleep=2)
+
     def test_tacet_task_fast_travel_vs_team(self):
         task = TacetTask(MagicMock(), MagicMock())
         task.ensure_main = MagicMock()
