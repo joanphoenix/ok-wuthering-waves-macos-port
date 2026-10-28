@@ -22,6 +22,8 @@ class _NavigationStateHarness:
 class TestNavigationState(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        from ok.ui.qt.util.macos_compat import install_macos_compatibility
+        install_macos_compatibility()
         cls.qt_app = QApplication.instance() or QApplication([])
 
     def test_expanded_width_is_applied_before_first_show(self):

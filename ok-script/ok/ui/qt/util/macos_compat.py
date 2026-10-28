@@ -1,4 +1,5 @@
 """One idempotent macOS compatibility layer for Fluent spin boxes."""
+import os
 import sys
 
 from PySide6.QtWidgets import QSpinBox
@@ -20,6 +21,18 @@ def fix_spinbox_layout(spin_box):
 def install_macos_compatibility():
     if sys.platform != 'darwin':
         return
+    if os.environ.get('QT_QPA_PLATFORM', '').split(':')[0] in {'offscreen', 'minimal'}:
+        try:
+            import qframelesswindow.mac as mac_frameless
+            mac_frameless.MacFramelessWindowBase.updateFrameless = lambda self: None
+            mac_frameless.MacFramelessWindowBase.setSystemTitleBarButtonVisible = (
+                lambda self, isVisible: setattr(self, '_isSystemButtonVisible', isVisible)
+            )
+            mac_frameless.MacFramelessWindowBase._updateSystemButtonRect = lambda self: None
+            mac_frameless.MacFramelessWindowBase._hideSystemTitleBar = lambda self: None
+        except Exception:
+            pass
+
     import qfluentwidgets.common.style_sheet as sheets
     from qfluentwidgets.components.widgets.spin_box import SpinBoxBase
     if getattr(sheets.getStyleSheetFromFile, '_ok_macos', False):

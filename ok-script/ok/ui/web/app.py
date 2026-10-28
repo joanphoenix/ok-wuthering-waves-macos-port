@@ -705,9 +705,19 @@ class WebRuntime:
         try:
             module = self.pyappify_module
             logger.info("calling pyappify.get_version_list(release_only=%s)", release_only)
-            versions = module.get_version_list(
-                release_only=release_only, exit_event=self.ok.exit_event
-            )
+            try:
+                versions = module.get_version_list(
+                    release_only=release_only, exit_event=self.ok.exit_event
+                )
+            except RuntimeError as exc:
+                if "pyappify_version: None" in str(exc):
+                    current_version = str(self.ok.config.get("version") or getattr(module, "app_version", "") or "")
+                    return {
+                        "current_version": current_version,
+                        "versions": [],
+                        "update_available": False,
+                    }
+                raise
             logger.info("pyappify.get_version_list result=%r", versions)
             if not isinstance(versions, list):
                 raise RuntimeError("PyAppify returned an invalid version list")

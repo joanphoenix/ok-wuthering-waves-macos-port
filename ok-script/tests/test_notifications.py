@@ -1,4 +1,5 @@
 import os
+import sys
 import smtplib
 import tempfile
 import time
@@ -7,7 +8,10 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 
 import numpy as np
 import pytest
-import win32con
+try:
+    import win32con
+except ImportError:
+    win32con = None
 
 from ok.notification.providers import (
     DiscordProvider, QQBotProvider, SmtpProvider, TelegramBotProvider,
@@ -238,6 +242,7 @@ def test_manager_system_notification_uses_shared_backend_and_setting():
     assert not manager.notify_system('Task', 'Done', tray=True)
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_windows_system_notifier_sends_tray_balloon():
     notifier = object.__new__(WindowsSystemNotifier)
     notifier.app_name = 'Test App'
@@ -390,6 +395,7 @@ def test_exit_event_stop_bindings_can_be_removed():
     listener.stop.assert_not_called()
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_messenger_layout_regions_are_dpi_scaled_and_edge_anchored():
     automation = MessengerAutomation(
         ('QQ.exe',), SimpleNamespace(), left_panel_width_96dpi=377)
@@ -404,6 +410,7 @@ def test_messenger_layout_regions_are_dpi_scaled_and_edge_anchored():
     assert send == (1210, 975, 1600, 1200)
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_messenger_search_field_fallback_uses_client_coordinates():
     automation = MessengerAutomation(
         ('QQ.exe',), SimpleNamespace(), search_point_96dpi=(200, 65))
@@ -417,6 +424,7 @@ def test_messenger_search_field_fallback_uses_client_coordinates():
     assert automation._last_frame is frame
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_messenger_contact_search_includes_qt_popup_before_root():
     automation = MessengerAutomation(('Weixin.exe',), SimpleNamespace())
 
@@ -488,6 +496,7 @@ def test_wechat_search_uses_text_before_first_space_but_keeps_full_contact_name(
     assert automation._search_query('Nickname') == 'Nickname'
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_background_click_does_not_post_activate_when_disabled():
     automation = MessengerAutomation(
         ('Weixin.exe',), SimpleNamespace(), post_activate=False)
@@ -500,6 +509,7 @@ def test_background_click_does_not_post_activate_when_disabled():
     assert win32con.WM_SETFOCUS in messages
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_popup_click_can_skip_focus_message():
     automation = MessengerAutomation(
         ('Weixin.exe',), SimpleNamespace(), post_activate=False)
@@ -634,6 +644,7 @@ def test_messenger_sends_text_then_each_image_separately():
     assert all(call.args[0] == 1 for call in sleep.call_args_list)
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_qq_does_not_escape_main_window_after_root_contact_click():
     automation = MessengerAutomation(
         ('QQ.exe',), SimpleNamespace(), dismiss_search_after_contact=True)
@@ -656,6 +667,7 @@ def test_qq_does_not_escape_main_window_after_root_contact_click():
     assert ('escape', win32con.VK_ESCAPE) not in events
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_qq_escapes_only_when_search_popup_remains_visible():
     automation = MessengerAutomation(
         ('QQ.exe',), SimpleNamespace(), dismiss_search_after_contact=True)
@@ -723,6 +735,7 @@ def test_messenger_header_shortcut_requires_header_and_send():
     ]
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_clear_unsent_text_uses_backspace_without_ctrl_hotkey():
     automation = MessengerAutomation(('QQ.exe',), SimpleNamespace())
 
@@ -736,6 +749,7 @@ def test_clear_unsent_text_uses_backspace_without_ctrl_hotkey():
     assert win32con.VK_CONTROL not in keys
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_clear_search_text_uses_short_synchronous_sequence():
     automation = MessengerAutomation(('QQ.exe',), SimpleNamespace())
 
@@ -748,6 +762,7 @@ def test_clear_search_text_uses_short_synchronous_sequence():
         win32con.VK_BACK, win32con.VK_DELETE]
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
 def test_clipboard_image_sets_dib_and_png_formats():
     frame = np.zeros((2, 2, 3), dtype=np.uint8)
 
