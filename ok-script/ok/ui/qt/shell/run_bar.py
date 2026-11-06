@@ -228,7 +228,8 @@ class RunBar(QFrame):
         self.basic_options = og.executor.basic_options
         self.current_hotkey = "UNINIT"
         self.handler = Handler(exit_event, "RunBarHotkey")
-        self.handler.post(self._check_hotkey, 0.1)
+        if windll is not None:
+            self.handler.post(self._check_hotkey, 0.1)
         self.refresh()
 
     # --- state ----------------------------------------------------------------
@@ -345,12 +346,13 @@ class RunBar(QFrame):
         self.handler.stop()
 
     def _check_hotkey(self) -> None:
+        if windll is None or wintypes is None:
+            return
         new_hotkey = self.basic_options.get('Start/Stop')
         if new_hotkey != self.current_hotkey:
             self._rebind_hotkey(new_hotkey)
             self.current_hotkey = new_hotkey
         msg = wintypes.MSG()
-        if windll is None: return
         if windll.user32.PeekMessageW(byref(msg), None, 0, 0, 1):
             if msg.message == 0x0312 and msg.wParam == HOTKEY_ID:  # WM_HOTKEY
                 logger.debug(f'hotkey pressed {msg}')

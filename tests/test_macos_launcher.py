@@ -40,3 +40,19 @@ exit 0
     (tmp_path / 'ok-script/pyproject.toml').write_text('changed framework')
     assert launch().returncode == 0
     assert len(log.read_text().splitlines()) == 3
+
+
+def test_macos_app_window_initialization():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from config import config
+    from ok import OK
+
+    ok = OK(config)
+    try:
+        ok.app.show_main_window()
+        assert ok.app.main_window is not None
+        assert ok.app.main_window.tasks_page is not None
+        assert ok.app.main_window.isVisible()
+    finally:
+        ok.quit()
+

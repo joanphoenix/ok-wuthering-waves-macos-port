@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 
 import pyappify
@@ -445,6 +446,8 @@ class MainWindow(KitWindow):
         return self._get_dwm_accent_color()
 
     def _system_accent(self, color_type_name='Accent'):
+        if sys.platform != 'win32':
+            return None
         try:
             from ok.rotypes.Windows.UI.ViewManagement import UIColorType, get_color_value
             value = get_color_value(getattr(UIColorType, color_type_name))
