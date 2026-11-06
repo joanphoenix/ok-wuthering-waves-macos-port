@@ -18,15 +18,9 @@ def test_nested_qt_config_uses_nested_window_size():
     }) == {"type": "qt", "window_size": size}
 
 
-@pytest.mark.parametrize("mode", ["pywebview", "browser", "server"])
-def test_nested_web_modes(mode):
-    assert resolve_ui_config({"gui": {"type": "web", "launch_mode": mode}}) == {
-        "type": "web", "launch_mode": mode, "window_size": DEFAULT_WINDOW_SIZE,
-    }
-
-
-def test_nested_web_defaults_to_pywebview():
-    assert resolve_ui_config({"gui": {"type": "web"}})["launch_mode"] == "pywebview"
+def test_web_gui_is_rejected():
+    with pytest.raises(ValueError, match="gui.type must be 'qt'"):
+        resolve_ui_config({"gui": {"type": "web"}})
 
 
 def test_legacy_use_gui_true_means_qt():
@@ -39,7 +33,7 @@ def test_legacy_use_gui_true_means_qt():
 
 def test_legacy_window_size_is_fallback_for_nested_gui():
     size = {"width": 1000, "height": 700, "min_width": 800, "min_height": 600}
-    config = {"gui": {"type": "web", "launch_mode": "server"}, "window_size": size}
+    config = {"gui": {"type": "qt"}, "window_size": size}
 
     assert resolve_window_size(config) == size
 

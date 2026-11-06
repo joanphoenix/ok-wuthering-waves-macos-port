@@ -3,18 +3,20 @@ import os
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from ok.ui.qt.MainWindow import MainWindow, request_pyappify_shutdown, update_check_delay_ms
+from ok.ui.qt.MainWindow import (
+    MainWindow,
+    game_starting_or_started,
+    request_pyappify_shutdown,
+)
 
 
 class TestMainWindowStartupTab(unittest.TestCase):
-    def test_pyappify_test_mode_checks_after_ten_seconds(self):
-        with patch.dict(os.environ, {"PYAPPIFY_PYTHON_TEST": ""}):
-            self.assertEqual(10_000, update_check_delay_ms())
-
-    def test_normal_update_check_waits_thirty_seconds(self):
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("PYAPPIFY_PYTHON_TEST", None)
-            self.assertEqual(30_000, update_check_delay_ms())
+    def test_game_starting_or_started(self):
+        self.assertTrue(game_starting_or_started(auto_start_enabled=True))
+        self.assertTrue(game_starting_or_started(start_task_requested=True))
+        self.assertTrue(game_starting_or_started(start_controller=SimpleNamespace(starting=True)))
+        self.assertTrue(game_starting_or_started(executor=SimpleNamespace(paused=False)))
+        self.assertFalse(game_starting_or_started(executor=SimpleNamespace(paused=True)))
 
     @patch("ok.ui.qt.MainWindow.pyappify.kill_pyappify")
     def test_pyappify_shutdown_does_not_block_gui_thread(self, kill_pyappify):
@@ -24,59 +26,59 @@ class TestMainWindowStartupTab(unittest.TestCase):
         thread.join(1)
         kill_pyappify.assert_called_once_with()
 
-    def test_started_check_cancels_pending_timer(self):
-        timer = SimpleNamespace(isActive=lambda: True, stop=Mock())
-        window = SimpleNamespace(update_check_timer=timer)
-
-        MainWindow._cancel_scheduled_update_check(window)
-
-        timer.stop.assert_called_once_with()
-
-    def test_prefers_default_onetime_tab(self):
-        onetime_tab = object()
+    def test_dispose_stops_timers(self):
+        timer = SimpleNamespace(stop=Mock())
         window = SimpleNamespace(
-            onetime_tab=onetime_tab,
-            grouped_task_tabs=[object()],
+            game_process_poll_timer=timer,
+            update_check_timer=timer,
+            tray=SimpleNamespace(hide=Mock()),
+            run_bar=SimpleNamespace(dispose=Mock()),
+            _pages={},
+            findChildren=lambda _cls: [],
+        )
+
+        MainWindow.dispose(window)
+
+        self.assertEqual(2, timer.stop.call_count)
+
+    def test_prefers_tasks_page(self):
+        tasks_page = object()
+        window = SimpleNamespace(
+            tasks_page=tasks_page,
             imported_tabs={"tasks.okscript": object()},
-            trigger_tab=object(),
         )
 
-        self.assertIs(onetime_tab, MainWindow.startup_task_tab(window))
+        self.assertIs(tasks_page, MainWindow.startup_task_tab(window))
 
-    def test_prefers_onetime_tabs_over_trigger_tab(self):
-        trigger_tab = object()
-        grouped_tab = object()
-        window = SimpleNamespace(
-            onetime_tab=None,
-            grouped_task_tabs=[grouped_tab],
-            imported_tabs={},
-            trigger_tab=trigger_tab,
-        )
-
-        self.assertIs(grouped_tab, MainWindow.startup_task_tab(window))
-
-    def test_uses_imported_onetime_tab_before_trigger_tab(self):
-        trigger_tab = object()
+    def test_falls_back_to_imported_tabs(self):
         imported_tab = object()
         window = SimpleNamespace(
-            onetime_tab=None,
-            grouped_task_tabs=[],
+            tasks_page=None,
             imported_tabs={"tasks.okscript": imported_tab},
-            trigger_tab=trigger_tab,
         )
 
         self.assertIs(imported_tab, MainWindow.startup_task_tab(window))
 
-    def test_falls_back_to_trigger_tab_without_onetime_tabs(self):
-        trigger_tab = object()
+    def test_falls_back_to_imported_tab_controller(self):
+        custom_tab = object()
         window = SimpleNamespace(
-            onetime_tab=None,
-            grouped_task_tabs=[],
+            tasks_page=None,
             imported_tabs={},
-            trigger_tab=trigger_tab,
+            _imported_tab_controller=SimpleNamespace(
+                custom_tabs={"plugin": [custom_tab]}
+            ),
         )
 
-        self.assertIs(trigger_tab, MainWindow.startup_task_tab(window))
+        self.assertIs(custom_tab, MainWindow.startup_task_tab(window))
+
+    def test_returns_none_when_no_tabs_exist(self):
+        window = SimpleNamespace(
+            tasks_page=None,
+            imported_tabs={},
+            _imported_tab_controller=None,
+        )
+
+        self.assertIsNone(MainWindow.startup_task_tab(window))
 
 
 if __name__ == "__main__":

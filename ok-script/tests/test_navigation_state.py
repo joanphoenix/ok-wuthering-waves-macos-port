@@ -1,46 +1,24 @@
-import os
 import unittest
-
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
-from PySide6.QtWidgets import QApplication, QWidget
-from qfluentwidgets import FluentIcon, FluentWindow, NavigationDisplayMode
 
 from ok.ui.qt.MainWindow import MainWindow
 
 
 class _NavigationStateHarness:
-    apply_navigation_state = MainWindow.apply_navigation_state
-    update_navigation_width = MainWindow.update_navigation_width
-    _expand_navigation_without_animation = MainWindow._expand_navigation_without_animation
+    _save_navigation_state = MainWindow._save_navigation_state
 
-    def __init__(self, navigation_interface, expanded):
-        self.navigationInterface = navigation_interface
-        self.ok_config = {'navigation_expanded': expanded}
+    def __init__(self, initial_state=False):
+        self.ok_config = {'navigation_expanded': initial_state}
 
 
 class TestNavigationState(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        from ok.ui.qt.util.macos_compat import install_macos_compatibility
-        install_macos_compatibility()
-        cls.qt_app = QApplication.instance() or QApplication([])
+    def test_save_navigation_state_persists_expanded_flag(self):
+        harness = _NavigationStateHarness(initial_state=True)
 
-    def test_expanded_width_is_applied_before_first_show(self):
-        window = FluentWindow()
-        window.resize(1600, 900)
+        harness._save_navigation_state(True)
+        self.assertFalse(harness.ok_config['navigation_expanded'])
 
-        page = QWidget()
-        page.setObjectName('capture')
-        window.addSubInterface(page, FluentIcon.PLAY, 'Capture')
-
-        harness = _NavigationStateHarness(window.navigationInterface, expanded=True)
-        harness.apply_navigation_state()
-
-        panel = window.navigationInterface.panel
-        self.assertEqual(panel.displayMode, NavigationDisplayMode.EXPAND)
-        self.assertGreater(panel.width(), 48)
-        self.assertEqual(window.navigationInterface.width(), panel.width())
+        harness._save_navigation_state(False)
+        self.assertTrue(harness.ok_config['navigation_expanded'])
 
 
 if __name__ == '__main__':

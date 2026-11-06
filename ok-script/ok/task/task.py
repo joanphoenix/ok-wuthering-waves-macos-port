@@ -1134,7 +1134,10 @@ class BaseTask(OCR):
         pass
 
     def tr(self, message):
-        return self._app.tr(message)
+        app = getattr(self, '_app', None)
+        if app is not None and hasattr(app, 'tr'):
+            return app.tr(message)
+        return message
 
     def should_trigger(self):
         if self.trigger_interval == 0:

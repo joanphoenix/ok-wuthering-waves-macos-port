@@ -36,6 +36,7 @@ dependencies = [
     "pycaw==20240210; sys_platform == 'win32'",
     "mouse==0.7.1; sys_platform == 'win32'",
     "pynput>=1.8.1",
+    "mcp==2.3.0",
     "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
@@ -48,16 +49,9 @@ default = [
     "ok-d3dshot>=0.1.5; sys_platform == 'win32'",
     "OpenCC==1.2.0",
 ]
-web = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "pywebview>=5.4",
-]
 qt = [
-    "PySide6-Essentials>=6.7.0",
-    "PySideSix-Frameless-Window>=0.3.12",
-    "darkdetect>=0.8.0",
-    "PySide6-Fluent-Widgets>=1.8.3",
+    "ok-pyside-minimal>=6.12.0.post2; sys_platform == 'win32'",
+    "PySide6>=6.7.0; sys_platform != 'win32'",
 ]
 adb = [
     "adbutils>=2.2.1",

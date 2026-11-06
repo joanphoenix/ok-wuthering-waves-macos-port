@@ -1,6 +1,6 @@
 # ok-wuthering-waves-macos-port
 
-Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool for *Wuthering Waves* (`ok-wuthering-waves` & `ok-script`). Includes upstream **v3.7.12** source changes, with the required template-loading support backported into the bundled Mac framework. Live gameplay validation is pending.
+Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool for *Wuthering Waves* (`ok-wuthering-waves` & `ok-script`). Includes upstream **v3.7.20-beta.1** (and **v3.7.19**) source changes, with the required template-loading and native UI support backported into the bundled Mac framework.
 
 ---
 

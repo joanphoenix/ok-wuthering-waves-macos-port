@@ -18,21 +18,6 @@ class _NotificationHarness:
         return self
 
 
-class _ExecutorPausedHarness:
-    executor_paused = MainWindow.executor_paused
-
-    def __init__(self):
-        self.stackedWidget = SimpleNamespace(currentIndex=Mock(return_value=1))
-        self.switchTo = Mock()
-        self.show_notification = Mock()
-
-    def startup_task_tab(self):
-        return None
-
-    def tr(self, message):
-        return message
-
-
 class TestMainWindowNotifications(unittest.TestCase):
     def test_task_name_notification_title_uses_app_translation(self):
         harness = _NotificationHarness()
@@ -43,33 +28,20 @@ class TestMainWindowNotifications(unittest.TestCase):
 
         with (
             patch("ok.ui.qt.MainWindow.QCoreApplication.translate", return_value="Translated status"),
-            patch("ok.ui.qt.util.app.show_info_bar") as show_info_bar,
+            patch("ok.ui.qt.MainWindow.show_toast") as show_toast,
         ):
             harness.show_notification("Stopped", "Original task name", tray=True)
 
         translate_task_name.assert_called_once_with("Original task name")
-        show_info_bar.assert_called_once_with(
+        show_toast.assert_called_once_with(
             harness,
             "Translated status",
             "Translated task name",
-            False,
+            "neutral",
+            duration=8000,
         )
         harness.notification_manager.notify_system.assert_called_once_with(
             "Translated task name", "Translated status", False, True)
-
-    def test_task_lifecycle_notifications_do_not_use_the_tray(self):
-        harness = _ExecutorPausedHarness()
-
-        harness.executor_paused(False)
-        harness.executor_paused(True)
-
-        self.assertEqual(
-            [
-                (("Start Success.",), {"tray": False}),
-                (("Pause Success.",), {"tray": False}),
-            ],
-            harness.show_notification.call_args_list,
-        )
 
 
 if __name__ == "__main__":

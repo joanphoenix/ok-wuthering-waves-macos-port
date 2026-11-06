@@ -3,6 +3,7 @@ import cv2
 
 from ok import Logger, find_color_rectangles
 from src.task.DomainTask import DomainTask
+from src.task.task_icons import task_icon
 
 logger = Logger.get_logger(__name__)
 
@@ -11,6 +12,9 @@ class ForgeryTask(DomainTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = '⚒️ Forgery Challenge'
+        self.icon = task_icon('forgery')
+        self.group_name = 'Daily Activities'
+        self.group_icon = task_icon('category-daily')
         self.description = 'Farms the selected Forgery Challenge. Must be able to teleport (F2).'
         self.support_schedule_task = True
         self.structure = [5, 5, 5, 5]
@@ -75,7 +79,7 @@ class ForgeryTask(DomainTask):
         self.open_boss_book('ningsu')
         self.info_set('Teleport to Forgery Challenge', serial_number - 1)
         if serial_number < 1 or serial_number > self.total_number:
-            raise IndexError(f'Index out of range (1-{self.total_number}), got {serial_number}')
+            raise IndexError(self.tr('Index out of range (1-{total_number}), got {serial_number}').format(total_number=self.total_number, serial_number=serial_number))
         self.click_on_book_target(serial_number, self.total_number, self.structure)
         self.click(0.891, 0.910, after_sleep=1)
         self.click_team_challenge()

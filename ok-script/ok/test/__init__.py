@@ -43,3 +43,9 @@ def destroy_ok():
     if ok is not None:
         ok.quit()
         ok = None
+    from ok import og
+    og.app = None
+    og.executor = None
+    og.device_manager = None
+    from ok.ui.qt.common.config import cfg, Language
+    cfg.language = Language.AUTO
