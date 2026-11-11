@@ -238,8 +238,8 @@ class UpdateCard(QWidget):
                 logger.info(f"{operation_name} result={result!r}")
                 signal.emit((True, result))
             except Exception as error:
-                if isinstance(error, RuntimeError) and "does not support checking for updates" in str(error):
-                    logger.info(f"{operation_name} not supported: {error}")
+                if (isinstance(error, RuntimeError) and "does not support checking for updates" in str(error)) or self._automatic_check:
+                    logger.info(f"{operation_name} not available during check: {error}")
                 else:
                     logger.error(f"{operation_name} failed: {error}", error)
                 signal.emit((False, str(error)))

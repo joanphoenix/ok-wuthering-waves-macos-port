@@ -35,6 +35,18 @@ class GlobalConfigTab(QWidget):
     def config_widget_by_key(self):
         return self.section.config_widget_by_key
 
+    @property
+    def titleLabel(self):
+        return self.section.title_label
+
+    @property
+    def contentLabel(self):
+        return self.section.description_label
+
+    @property
+    def reset_config(self):
+        return self.section.reset_button
+
     def has_key(self, key) -> bool:
         return self.section.has_key(key)
 

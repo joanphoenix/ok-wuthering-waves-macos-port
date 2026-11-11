@@ -314,6 +314,8 @@ class App(_OverlayConfigMixin):
         self.global_config = task_executor.global_config if task_executor else None
         from ok.ui.qt.util.app import init_app_config
         self.app, self.locale = init_app_config()
+        from ok.ui.qt.common.config import cfg as ui_config
+        ui_config.language_changed.connect(self._on_language_changed)
         install_qt_event_dispatcher()
         self.app.aboutToQuit.connect(self._close_device_manager)
         if task_executor is not None:
@@ -465,6 +467,44 @@ class App(_OverlayConfigMixin):
         self.do_show_main()
 
     def do_show_main(self):
+        self._create_main_window()
+        self.main_window.show()
+        self.main_window.bring_to_front()
+
+        logger.debug(f'show_main_window end')
+
+    def _on_language_changed(self):
+        # The signal comes from a widget in the window being replaced; rebuild once it returns.
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._apply_language)
+
+    def _apply_language(self):
+        from ok.ui.qt.util.app import install_translator
+        self.locale = install_translator(self.app)
+        self.po_translation = None
+        if og.executor is not None:
+            og.executor.locale = self.locale
+            og.executor.load_tr()
+        logger.info(f'language changed to {self.locale.name()}')
+
+        old_window = self.main_window
+        if old_window is None:
+            return
+        # Every page translates its text on construction, so build a fresh window.
+        visible = old_window.isVisible()
+        old_window.update_ok_config()
+        old_window.dispose()
+        self._create_main_window()
+        # Startup work in the first showEvent has already run for this process.
+        self.main_window.shown = True
+        self.main_window.switch_to(self.main_window.setting_tab)
+        if visible:
+            self.main_window.show()
+            self.main_window.bring_to_front()
+        old_window.hide()
+        old_window.deleteLater()
+
+    def _create_main_window(self):
         from ok.ui.qt.MainWindow import MainWindow
 
         self.main_window = MainWindow(self, self.config, self.ok_config, self.icon, self.title, self.version,
@@ -485,11 +525,6 @@ class App(_OverlayConfigMixin):
         if og.my_app:
             if hasattr(og.my_app, 'on_show_main_window'):
                 og.my_app.on_show_main_window(self.main_window)
-
-        self.main_window.show()
-        self.main_window.bring_to_front()
-
-        logger.debug(f'show_main_window end')
 
     def exec(self):
         logger.info('app.exec()')
@@ -1266,21 +1301,14 @@ class OkGlobals:
         logger.info(f'app path {self.app_path}')
 
     def set_use_dml(self):
-        from ok.util.process import get_first_gpu_free_memory_mib
-
-        use_dml_txt_option = self.global_config.get_config('Basic Options').get('Use DirectML')
-        use_dml = False
-        if use_dml_txt_option == 'Auto':
-            nv_free_gpu_memory = get_first_gpu_free_memory_mib()
-            if nv_free_gpu_memory > 3000:
-                use_dml = True
-            logger.info(f'Use DirectML is auto nv_free_gpu_memory: {nv_free_gpu_memory}, use_dml: {use_dml}')
-        elif use_dml_txt_option == 'Yes':
-            use_dml = True
-        if use_dml:
-            window_build_number_str = platform.version().split(".")[-1]
-            window_build_number = int(window_build_number_str) if window_build_number_str.isdigit() else 0
-            use_dml = window_build_number >= 18362
+        # DirectML is no longer a setting: use it wherever Windows supports it (1903+).
+        if sys.platform != "win32":
+            self.use_dml = False
+            logger.info(f'use_dml result is {self.use_dml}')
+            return
+        window_build_number_str = platform.version().split(".")[-1]
+        window_build_number = int(window_build_number_str) if window_build_number_str.isdigit() else 0
+        use_dml = window_build_number >= 18362
         logger.info(f'use_dml result is {use_dml}')
         self.use_dml = use_dml
 

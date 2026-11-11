@@ -96,12 +96,9 @@ class TestBasicOptions(unittest.TestCase):
                 tab = GlobalConfigTab(config, option)
 
                 self.assertTrue(tab.has_key('Enabled'))
-                self.assertEqual('Tab Options', tab.titleLabel.text())
-                self.assertEqual('viewTitleLabel', tab.titleLabel.objectName())
-                self.assertEqual('Configure tab options', tab.descriptionLabel.text())
-                self.assertEqual('contentLabel', tab.descriptionLabel.objectName())
-                self.assertEqual('configContentFrame', tab.contentFrame.objectName())
-                self.assertIsNot(tab.viewLayout, tab.vBoxLayout)
+                self.assertEqual('Tab Options', tab.section.title_label.text())
+                self.assertEqual('Configure tab options', tab.section.description_label.text())
+                self.assertIsNotNone(tab.section.form)
                 self.assertFalse(hasattr(tab, 'card'))
                 tab.deleteLater()
         finally:
