@@ -698,12 +698,16 @@ class OK:
         logger.info(f"ok-script init {config.get('version')}, {sys.argv}, pid={os.getpid()} config: {config}")
         if self.debug:
             logger.debug(f"environment contains {len(os.environ)} entries")
-        pyappify.logger = logger
+        # pyappify logs printf-style (log.info("%s", value)), which ok's Logger does not accept.
+        from ok.util.logger import get_std_logger
+        pyappify.logger = get_std_logger('pyappify')
         logger.info(
             f"pyappify  app_version:{pyappify.app_version}, app_profile:{pyappify.app_profile}, pyappify_version:{pyappify.pyappify_version} pyappify_upgradeable:{pyappify.pyappify_upgradeable}, pyappify_executable:{pyappify.pyappify_executable}")
         self.args = parse_arguments()
         self._runtime_start_lock = threading.Lock()
         self._runtime_started = False
+        self._mcp_server = None
+        self._mcp_start_deferred = False
         self.task_executor = None
         self._app = None
         self._headless_app = None
@@ -777,8 +781,19 @@ class OK:
                 )
             use_gui = (ui_config is not None and ui_config["type"] == "qt"
                        and not self.args.get('headless', False))
+            if use_gui and not self.init_error:
+                # Loading the MCP SDK takes about half a second; the main window
+                # starts the server once it has been painted.
+                self._mcp_start_deferred = True
+            else:
+                self.start_mcp_server()
             task_arg = self.args.get('task', 0)
             has_task = bool(task_arg) if isinstance(task_arg, str) else task_arg > 0
+            if not use_gui:
+                # The GUI creates shortcuts once its main window is shown.
+                from ok.util.GlobalConfig import basic_options
+                from ok.util.shortcut import create_app_shortcut
+                create_app_shortcut(self.global_config.get_config(basic_options))
             if not use_gui and has_task:
                 self.run_task(task_arg, exit_after=self.args.get('exit', False))
                 return
@@ -806,6 +821,57 @@ class OK:
             self.exit_event.set()
             if self._app or self._headless_app:
                 self.quit()
+
+    def _mcp_enabled(self):
+        from ok.util.GlobalConfig import ENABLE_MCP_SERVER, basic_options
+        config = self.config.get('mcp') or {}
+        return bool(config.get('enabled', False)
+                    or self.global_config.get_config(basic_options).get(ENABLE_MCP_SERVER, False))
+
+    def take_deferred_mcp_start(self):
+        """Whether the GUI still owes the MCP server start that ``start`` postponed."""
+        deferred = getattr(self, '_mcp_start_deferred', False)
+        self._mcp_start_deferred = False
+        return deferred and self._mcp_server is None and self._mcp_enabled()
+
+    def start_mcp_server(self):
+        """Start the optional localhost bridge after runtime initialization."""
+        config = self.config.get('mcp') or {}
+        if not self._mcp_enabled() or self._mcp_server is not None:
+            return
+        from ok.core.mcp_server import LocalMcpServer
+        server = LocalMcpServer(self, config)
+        server.start()
+        self._mcp_server = server
+
+    def stop_mcp_server(self):
+        """Stop only this runtime's MCP server, leaving the application running."""
+        server = self._mcp_server
+        if server is None:
+            return
+        server.stop()
+        server.join()
+        if server._thread is not None and server._thread.is_alive():
+            raise RuntimeError('MCP server is still stopping; try again shortly')
+        self._mcp_server = None
+
+    def set_mcp_enabled(self, enabled):
+        """Apply a confirmed GUI preference immediately and persist on success."""
+        from ok.util.GlobalConfig import ENABLE_MCP_SERVER, basic_options
+        previous = self.config.get('mcp')
+        self.config['mcp'] = {**(previous or {}), 'enabled': enabled}
+        try:
+            if enabled:
+                self.start_mcp_server()
+            else:
+                self.stop_mcp_server()
+        except Exception:
+            if previous is None:
+                self.config.pop('mcp', None)
+            else:
+                self.config['mcp'] = previous
+            raise
+        self.global_config.get_config(basic_options)[ENABLE_MCP_SERVER] = enabled
 
     def start_runtime(self):
         """Start UI-independent runtime initialization exactly once.
@@ -1130,6 +1196,8 @@ class OK:
 
     def quit(self):
         logger.info('quit app')
+        if getattr(self, '_mcp_server', None) is not None:
+            self._mcp_server.stop()
         self.exit_event.set()
         if self._app:
             self._app.quit()

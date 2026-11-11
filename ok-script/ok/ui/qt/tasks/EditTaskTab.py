@@ -146,12 +146,22 @@ class CodeEditor(PlainTextEdit):
 
 
 class EditTaskTab(QWidget):
+    @property
+    def all_templates(self):
+        if self._all_templates is None:
+            self._all_templates = get_templates()
+        return self._all_templates
+
+    @all_templates.setter
+    def all_templates(self, value):
+        self._all_templates = value
+
     def __init__(self):
         super().__init__()
         self.setObjectName("EditTaskTab")
         self.task = None
         self.python_file = None
-        self.all_templates = get_templates()
+        self._all_templates = None  # parsed on first use; it costs ~50ms at startup
         self.file_watcher = QFileSystemWatcher(self)
         self.file_watcher.fileChanged.connect(self.on_file_changed)
         self.init_ui()

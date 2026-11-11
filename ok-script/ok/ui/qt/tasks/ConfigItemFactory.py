@@ -51,7 +51,7 @@ def config_widget(config_type, config_desc, config, key, value, task):
             return LabelAndSpinBox(config_desc, config, key, the_type)
         elif resolved_type in ('float', 'double', 'double_spin_box'):
             return LabelAndDoubleSpinBox(config_desc, config, key)
-        elif resolved_type in ('bool', 'boolean', 'switch'):
+        elif resolved_type in ('bool', 'boolean', 'switch', 'mcp_server'):
             return LabelAndSwitchButton(config_desc, config, key)
         else:
             raise Exception(f'Unknown config type: {resolved_type}')

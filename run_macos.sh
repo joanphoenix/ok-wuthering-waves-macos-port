@@ -23,9 +23,9 @@ INSTALL_STAMP="$SCRIPT_DIR/.venv/.macos-dependencies"
 INSTALL_KEY=$(shasum -a 256 "$SCRIPT_DIR/run_macos.sh" "$SCRIPT_DIR/ok-script/pyproject.toml" "$SCRIPT_DIR/pyproject.toml" | shasum -a 256)
 if [[ ! -f "$INSTALL_STAMP" ]] || [[ "$(cat "$INSTALL_STAMP")" != "$INSTALL_KEY" ]]; then
     "$PYTHON_BIN" -m pip install --upgrade pip
-    OK_SCRIPT_BUILD_VERSION=3.0.4+macos.1 "$PYTHON_BIN" -m pip install -e "$SCRIPT_DIR/ok-script[default,ocr,qt]" \
+    OK_SCRIPT_BUILD_VERSION=3.0.5b4+macos.1 "$PYTHON_BIN" -m pip install -e "$SCRIPT_DIR/ok-script[default,ocr,qt]" \
         pyobjc-framework-Quartz pyobjc-framework-Cocoa pyobjc-framework-ApplicationServices \
-        onnxruntime opencv-python polib 'mcp==2.3.0'
+        onnxruntime opencv-python polib 'mcp==2.3.0' 'dulwich==1.2.21'
     print -r -- "$INSTALL_KEY" > "$INSTALL_STAMP"
 fi
 
