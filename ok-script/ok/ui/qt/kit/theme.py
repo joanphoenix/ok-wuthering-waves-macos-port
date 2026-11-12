@@ -26,8 +26,8 @@ class Theme(Enum):
 DEFAULT_ACCENT = "#7C5CFF"
 
 if sys.platform == 'darwin':
-    FONT_FAMILY = '-apple-system, BlinkMacSystemFont, ".AppleSystemUIFont", "PingFang SC", sans-serif'
-    MONO_FONT_FAMILY = 'Menlo, Monaco, "Cascadia Mono", monospace'
+    FONT_FAMILY = '".AppleSystemUIFont", "PingFang SC", "Helvetica Neue", sans-serif'
+    MONO_FONT_FAMILY = 'Menlo, Monaco, "Courier New", monospace'
 else:
     FONT_FAMILY = '"Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif'
     MONO_FONT_FAMILY = '"Cascadia Mono", "JetBrains Mono", Consolas, monospace'

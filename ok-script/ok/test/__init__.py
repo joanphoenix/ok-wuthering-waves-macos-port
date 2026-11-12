@@ -49,3 +49,8 @@ def destroy_ok():
     og.device_manager = None
     from ok.ui.qt.common.config import cfg, Language
     cfg.language = Language.AUTO
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is not None:
+        from ok.ui.qt.util.app import install_translator
+        install_translator(app)
