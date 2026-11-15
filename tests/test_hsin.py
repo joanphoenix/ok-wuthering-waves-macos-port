@@ -159,14 +159,22 @@ class HsinRotationTest(unittest.TestCase):
     def lost_target_checks(self, lost_before_hold=False):
         char = self.char
         retargets = []
-        checker = create_autospec(
-            BaseCombatTask, instance=True,
-            skip_combat_check=False, _in_combat=True, in_liberation=False,
-            scene=SimpleNamespace(in_combat=lambda: None, set_in_combat=lambda: True),
-            check_f_break=lambda: None, get_current_char=lambda: char,
-            on_combat_check=lambda: True, combat_end_condition=None,
-            has_target=lambda: not lost_before_hold and char.task.mouse_start is None,
-            should_check_monthly_card=lambda: False)
+        # create_autospec replaces method kwargs with child mocks, so the
+        # stand-ins have to be assigned after the spec is built.
+        checker = create_autospec(BaseCombatTask, instance=True)
+        checker.skip_combat_check = False
+        checker._in_combat = True
+        checker.in_liberation = False
+        checker.scene = SimpleNamespace(in_combat=lambda: None, set_in_combat=lambda: True)
+        checker.check_f_break = lambda: None
+        checker.get_current_char = lambda: char
+        checker.on_combat_check = lambda: True
+        checker.combat_end_condition = None
+        checker.has_target = lambda: not lost_before_hold and char.task.mouse_start is None
+        checker.should_check_monthly_card = lambda: False
+        checker.check_health_bar = lambda: False
+        checker.target_enemy_time_out = 3
+        checker.last_in_realm_not_combat = 0
 
         def retarget(wait=True, **kwargs):
             retargets.append(self.clock.now)

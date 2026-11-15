@@ -6,15 +6,24 @@ from ok.util.gpu_driver_settings import GpuDriverPostProcessing
 
 
 class TestGpuDriverSettings(unittest.TestCase):
-    def test_rtx_hdr_reports_drs_hit_without_precondition_checks(self):
+    def test_rtx_hdr_requires_a_confirmed_filter_profile(self):
         drs_hit = GpuDriverPostProcessing("NVIDIA", "RTX HDR", True, "Global Profile: value=1")
 
-        with patch.object(gpu_settings, "_detect_nvidia_drs_flags", return_value=drs_hit), \
+        with patch.object(gpu_settings, "_nvidia_filter_profile_in_use_state",
+                          return_value=(None, "profile unavailable")), \
+                patch.object(gpu_settings, "_detect_nvidia_drs_flags") as detect:
+            self.assertIsNone(gpu_settings.is_nvidia_rtx_hdr_enabled(r"C:\Game\game.exe"))
+        detect.assert_not_called()
+
+        with patch.object(gpu_settings, "_nvidia_filter_profile_in_use_state",
+                          return_value=(True, "slot=1")), \
+                patch.object(gpu_settings, "_detect_nvidia_drs_flags", return_value=drs_hit) as detect, \
                 patch.object(gpu_settings, "_windows_hdr_enabled_state") as hdr_state:
             result = gpu_settings.is_nvidia_rtx_hdr_enabled(r"C:\Game\game.exe")
 
         self.assertEqual(drs_hit, result)
         hdr_state.assert_not_called()
+        self.assertIs(detect.call_args.kwargs["allow_db_fallback"], False)
 
     def test_unknown_nvidia_filter_profile_does_not_block_detected_features(self):
         with patch.object(gpu_settings, "os") as fake_os, \
@@ -39,15 +48,16 @@ class TestGpuDriverSettings(unittest.TestCase):
                 patch.object(gpu_settings, "is_windows_hdr_enabled",
                              return_value=GpuDriverPostProcessing("Windows", "HDR", True)), \
                 patch.object(gpu_settings, "_nvidia_filter_profile_in_use_state",
-                             return_value=(None, "profile unavailable")), \
+                             return_value=(True, "slot=1")), \
                 patch.object(gpu_settings, "is_nvidia_image_sharpening_enabled", return_value=None), \
                 patch.object(gpu_settings, "is_nvidia_rtx_dynamic_vibrance_enabled", return_value=None), \
-                patch.object(gpu_settings, "is_nvidia_rtx_hdr_enabled", return_value=rtx_hdr), \
+                patch.object(gpu_settings, "is_nvidia_rtx_hdr_enabled", return_value=rtx_hdr) as rtx_hdr_enabled, \
                 patch.object(gpu_settings, "is_amd_image_sharpening_enabled", return_value=None):
             fake_os.name = "nt"
             result = gpu_settings.get_enabled_gpu_driver_post_processing(r"C:\Game\game.exe", 100)
 
-        self.assertEqual([rtx_hdr], result)
+        self.assertIn(rtx_hdr, result)
+        rtx_hdr_enabled.assert_called_once()
 
     def test_get_enabled_reports_nvidia_filter_profile_when_in_use(self):
         with patch.object(gpu_settings, "os") as fake_os, \

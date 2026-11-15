@@ -245,7 +245,7 @@ config = {
         'launch_arguments': get_game_launch_arguments,
         'exe': ['Client-Mac-Shipping', 'Client-Win64-Shipping.exe'] if sys.platform == 'darwin' else 'Client-Win64-Shipping.exe',
         'hwnd_class': None if sys.platform == 'darwin' else 'UnrealWindow',
-        'interaction': 'PostMessage',
+        'interaction': ['PostMessage', 'Pynput'],
         'capture_method': ['WGC', 'WGC_HDR', 'BitBlt_RenderFull'],  # Windows版本支持的话, 优先使用WGC, 否则使用BitBlt_Full
         'check_hdr': False,
         'force_no_hdr': False,

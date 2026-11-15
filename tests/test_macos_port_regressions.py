@@ -1,7 +1,11 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    # Windows CI loads this module through unittest and does not install pytest.
+    pytest = None
 
 from ok.device.interaction_methods import macos_quartz as inputs
 from ok.task.exceptions import TaskDisabledException
@@ -69,27 +73,23 @@ def test_focus_loss_releases_held_mouse_button():
 
 
 def test_spinbox_installer_is_idempotent_and_windows_is_untouched():
-    import sys
-    from PySide6.QtWidgets import QApplication
-    from qfluentwidgets import SpinBox
-    from qfluentwidgets.components.widgets.spin_box import SpinBoxBase
-    from qfluentwidgets.common import style_sheet
-    from ok.ui.qt.util.macos_compat import install_macos_compatibility, fix_spinbox_layout
+    from PySide6.QtWidgets import QApplication, QSpinBox
+    from ok.ui.qt.kit.inputs import NumberBox
+    from ok.ui.qt.util.macos_compat import fix_spinbox_layout
     global _test_qt_app
     _test_qt_app = QApplication.instance() or QApplication([])
-    if sys.platform == 'darwin':
-        install_macos_compatibility()
-        first = SpinBoxBase.__init__
-        sheet = style_sheet.getStyleSheetFromFile
-        install_macos_compatibility()
-        assert SpinBoxBase.__init__ is first
-        assert style_sheet.getStyleSheetFromFile is sheet
-    widget = SpinBox()
+    # The live tasks page uses the kit number box, which does not need Fluent widgets.
+    box = NumberBox(1, minimum=1, maximum=21)
+    assert box.spin_box.lineEdit().text() == '1'
+    box.plus_button.click()
+    assert box.value() == 2
+    widget = QSpinBox()
     with patch('ok.ui.qt.util.macos_compat.sys.platform', 'win32'):
         original = widget.styleSheet()
         fix_spinbox_layout(widget)
         assert widget.styleSheet() == original
     widget.deleteLater()
+    box.deleteLater()
 
 
 def test_activation_uses_native_api_without_system_events():

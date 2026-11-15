@@ -66,9 +66,10 @@ class TestCalculatePcExePath(unittest.TestCase):
 
     def test_macos_pc_exe_path(self):
         self.mock_macos_exe.return_value = "/Applications/Wuthering Waves.app"
-        with patch.object(config, "_find_most_recently_run_pc_exe", return_value=None):
-            with patch.object(config, "_find_pc_exe_from_registry", return_value=None):
-                result = config.calculate_pc_exe_path(None)
+        with patch.object(config.sys, "platform", "darwin"):
+            with patch.object(config, "_find_most_recently_run_pc_exe", return_value=None):
+                with patch.object(config, "_find_pc_exe_from_registry", return_value=None):
+                    result = config.calculate_pc_exe_path(None)
         self.assertEqual("/Applications/Wuthering Waves.app", result)
 
 
