@@ -261,14 +261,7 @@ def check_mutex(wait_time=5, kill_wait_time=3):
                 return True
             time.sleep(0.25)
 
-        if not _terminate_previous_instances(owner_file):
-            return False
-
-        deadline = time.monotonic() + max(0, kill_wait_time)
-        while time.monotonic() < deadline:
-            if try_acquire_posix():
-                return True
-            time.sleep(0.25)
+        logger.error('Another instance is running. Close it before launching again.')
         return False
 
     _LPSECURITY_ATTRIBUTES = wintypes.LPVOID
@@ -311,18 +304,7 @@ def check_mutex(wait_time=5, kill_wait_time=3):
                 return True
             time.sleep(0.25)
 
-        logger.warning(
-            f"Mutex {mutex_name} still exists after {wait_time} seconds; checking its recorded owner.")
-        if not _terminate_previous_instances(owner_file):
-            logger.error('No safely identifiable previous instance could be terminated.')
-            return False
-
-        deadline = time.monotonic() + max(0, kill_wait_time)
-        while time.monotonic() < deadline:
-            if try_acquire():
-                return True
-            time.sleep(0.25)
-        logger.error(f"Mutex {mutex_name} was not released after terminating its recorded owner.")
+        logger.error('Another instance is running. Close it before launching again.')
         return False
 
     _retain_mutex(mutex, owner_file)

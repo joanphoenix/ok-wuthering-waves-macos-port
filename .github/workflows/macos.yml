@@ -1,0 +1,24 @@
+name: macOS runtime regressions
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONPATH: ok-script:.
+      OK_SCRIPT_BUILD_VERSION: 3.0.5b9+macos.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Mac dependencies
+        run: python -m pip install -e './ok-script[default,ocr,qt,web,dev]' onnxruntime opencv-python polib dulwich==1.2.21
+      - name: Test launcher and native runtime seams
+        run: python -m pytest -q tests/test_macos_launcher.py tests/test_macos_port_regressions.py ok-script/tests/test_pr2_regressions.py ok-script/tests/test_runtime_reliability.py ok-script/tests/test_process_mutex.py ok-script/tests/test_ok_mutex.py

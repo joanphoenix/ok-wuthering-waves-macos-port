@@ -105,4 +105,4 @@ jobs:
       - name: Run PR regression tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest -q ok-script/tests/test_pr2_regressions.py
+        run: python -m pytest -q ok-script/tests/test_pr2_regressions.py ok-script/tests/test_runtime_reliability.py

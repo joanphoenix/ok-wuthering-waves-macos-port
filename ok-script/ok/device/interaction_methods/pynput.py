@@ -99,6 +99,8 @@ class PynputInteraction(BaseInteraction):
 
     def scroll(self, x, y, scroll_amount):
         from pynput import mouse
+        if not self.clickable():
+            return
         if scroll_amount < 0:
             sign = -1
         elif scroll_amount > 0:
@@ -111,6 +113,9 @@ class PynputInteraction(BaseInteraction):
 
         controller = mouse.Controller()
         for i in range(abs(scroll_amount)):
+            if not self.clickable():
+                self.on_destroy()
+                return
             controller.scroll(0, sign)
             time.sleep(0.001)
         time.sleep(0.02)
@@ -126,31 +131,29 @@ class PynputInteraction(BaseInteraction):
 
     def swipe(self, x1, y1, x2, y2, duration, settle_time=0):
         from pynput import mouse
+        if not self.clickable():
+            return
         x1, y1 = self.capture.get_abs_cords(x1, y1)
         x2, y2 = self.capture.get_abs_cords(x2, y2)
-
         controller = mouse.Controller()
         controller.position = (x1, y1)
         time.sleep(0.1)
-
+        if not self.clickable():
+            return
         controller.press(mouse.Button.left)
-
-        dx = x2 - x1
-        dy = y2 - y1
-
-        steps = int(duration / 100)
-        if steps <= 0:
-            steps = 1
-
-        step_dx = dx / steps
-        step_dy = dy / steps
-
-        for i in range(steps):
-            controller.position = (x1 + int(i * step_dx), y1 + int(i * step_dy))
-            time.sleep(0.01)
-        controller.position = (x2, y2)
-
-        controller.release(mouse.Button.left)
+        self._held_buttons[mouse.Button.left] = controller
+        try:
+            steps = max(1, int(duration / 100))
+            for i in range(1, steps + 1):
+                if not self.clickable():
+                    return
+                controller.position = (x1 + int(i * (x2 - x1) / steps),
+                                       y1 + int(i * (y2 - y1) / steps))
+                time.sleep(0.01)
+        finally:
+            self.mouse_up()
+        if settle_time:
+            time.sleep(settle_time)
 
     def click(self, x=-1, y=-1, move_back=False, name=None, down_time=0.01, move=False, key="left"):
         from pynput import mouse
@@ -171,12 +174,16 @@ class PynputInteraction(BaseInteraction):
             time.sleep(0.02)
 
         button = self.get_mouse_button(key)
+        if not self.clickable():
+            return
         controller.press(button)
-        time.sleep(down_time)
-        controller.release(button)
-
-        if current_pos:
-            controller.position = current_pos
+        self._held_buttons[button] = controller
+        try:
+            time.sleep(down_time)
+        finally:
+            self.mouse_up(key)
+            if current_pos is not None and self.clickable():
+                controller.position = current_pos
 
     def mouse_down(self, x=-1, y=-1, name=None, key="left"):
         from pynput import mouse
@@ -191,6 +198,8 @@ class PynputInteraction(BaseInteraction):
             controller.position = (abs_x, abs_y)
             time.sleep(0.02)
 
+        if not self.clickable():
+            return
         button = self.get_mouse_button(key)
         controller.press(button)
         self._held_buttons[button] = controller

@@ -17,6 +17,7 @@ def test_failed_install_retries_and_dependency_changes_invalidate_stamp(tmp_path
 case "$*" in
   *"-m pip install -e"*)
     echo install >> "$TEST_LOG"
+    echo "$*" >> "$TEST_ARGUMENTS"
     if [ -f "$FAIL_INSTALL" ]; then exit 1; fi
     ;;
 esac
@@ -26,9 +27,9 @@ exit 0
     log = tmp_path / 'install.log'
     fail = tmp_path / 'fail'
     fail.touch()
-    env = dict(os.environ, TEST_LOG=str(log), FAIL_INSTALL=str(fail))
-    def launch():
-        return subprocess.run(['zsh', str(script)], env=env, capture_output=True)
+    env = dict(os.environ, TEST_LOG=str(log), FAIL_INSTALL=str(fail), TEST_ARGUMENTS=str(tmp_path / "arguments.log"))
+    def launch(*args):
+        return subprocess.run(['zsh', str(script), *args], env=env, capture_output=True)
     assert launch().returncode != 0
     stamp = tmp_path / '.venv/.macos-dependencies'
     assert not stamp.exists()
@@ -40,6 +41,12 @@ exit 0
     (tmp_path / 'ok-script/pyproject.toml').write_text('changed framework')
     assert launch().returncode == 0
     assert len(log.read_text().splitlines()) == 3
+    assert launch('--web').returncode == 0
+    assert '[default,ocr,qt,web]' in (tmp_path / 'arguments.log').read_text().splitlines()[-1]
+    assert launch('--web').returncode == 0
+    assert len(log.read_text().splitlines()) == 4
+    assert launch().returncode == 0
+    assert len(log.read_text().splitlines()) == 5
 
 
 def test_macos_app_window_initialization():

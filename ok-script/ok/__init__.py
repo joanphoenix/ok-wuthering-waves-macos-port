@@ -718,7 +718,7 @@ class OK:
         if config.get('check_mutex', True):
             if not check_mutex_fn():
                 raise RuntimeError(
-                    'Another application instance is still running and could not be stopped safely.')
+                    'Another application instance is running. Close it before launching again.')
         og.ok = self
         if pyappify.app_version:
             config['version'] = pyappify.app_version

@@ -67,6 +67,12 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
 
 ---
 
+## Launch and recovery
+
+Opening the app twice leaves the existing instance running. Close it before starting another instance. If automation pauses after moving or minimizing the game, return it to a visible display and restart the interrupted task.
+
+The first `--web` launch installs the web interface dependencies. Switching launch modes refreshes the dependency stamp as needed.
+
 ## Input focus
 
 Keep the game in the foreground while automation runs. Input stops when another app gains focus; held keys and buttons are released to the game process. Return to the game before restarting the task.
