@@ -33,6 +33,8 @@ class PynputInteraction(BaseInteraction):
         super().__init__(capture)
         self.hwnd_window = hwnd_window
         self.check_clickable = True
+        self._held_keys = {}
+        self._held_buttons = {}
         if not is_admin():
             logger.error(f"You must be an admin to use PynputInteraction")
 
@@ -59,11 +61,11 @@ class PynputInteraction(BaseInteraction):
             logger.error(f"can't click on {key}, because capture is not clickable")
             return
 
-        controller = keyboard.Controller()
-        parsed_key = self._parse_key(str(key))
-        controller.press(parsed_key)
-        time.sleep(down_time)
-        controller.release(parsed_key)
+        self.send_key_down(key)
+        try:
+            time.sleep(down_time)
+        finally:
+            self.send_key_up(key)
 
     def send_key_down(self, key):
         from pynput import keyboard
@@ -74,16 +76,26 @@ class PynputInteraction(BaseInteraction):
         controller = keyboard.Controller()
         parsed_key = self._parse_key(str(key))
         controller.press(parsed_key)
+        self._held_keys[parsed_key] = controller
 
     def send_key_up(self, key):
         from pynput import keyboard
-        if not self.clickable():
-            logger.error(f"can't click on {key}, because capture is not clickable")
-            return
-
-        controller = keyboard.Controller()
         parsed_key = self._parse_key(str(key))
+        controller = self._held_keys.get(parsed_key)
+        if controller is None:
+            controller = keyboard.Controller()
         controller.release(parsed_key)
+        self._held_keys.pop(parsed_key, None)
+
+    def on_destroy(self):
+        # Releases must remain possible after focus loss and task cancellation.
+        for held in (self._held_keys, self._held_buttons):
+            for value, controller in tuple(held.items()):
+                try:
+                    controller.release(value)
+                    held.pop(value, None)
+                except Exception as error:
+                    logger.error(f'Could not release held input {value}: {error}')
 
     def scroll(self, x, y, scroll_amount):
         from pynput import mouse
@@ -181,6 +193,7 @@ class PynputInteraction(BaseInteraction):
 
         button = self.get_mouse_button(key)
         controller.press(button)
+        self._held_buttons[button] = controller
 
     def get_mouse_button(self, key):
         from pynput import mouse
@@ -192,13 +205,12 @@ class PynputInteraction(BaseInteraction):
 
     def mouse_up(self, key="left"):
         from pynput import mouse
-        if not self.clickable():
-            logger.info(f"window in background, not clickable")
-            return
-
-        controller = mouse.Controller()
         button = self.get_mouse_button(key)
+        controller = self._held_buttons.get(button)
+        if controller is None:
+            controller = mouse.Controller()
         controller.release(button)
+        self._held_buttons.pop(button, None)
 
     def should_capture(self):
         return self.clickable()

@@ -178,7 +178,8 @@ class ComboBox(QComboBox):
         return option.fontMetrics.elidedText(option.currentText, Qt.TextElideMode.ElideRight, max(0, width))
 
     def paintEvent(self, event) -> None:
-        if self.isEditable() or self.labelDrawingMode() == QComboBox.LabelDrawingMode.UseDelegate:
+        if self.isEditable() or (hasattr(self, "labelDrawingMode") and
+                                 self.labelDrawingMode() == QComboBox.LabelDrawingMode.UseDelegate):
             super().paintEvent(event)
             return
         option = self._label_option()
