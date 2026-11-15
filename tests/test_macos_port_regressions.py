@@ -1,7 +1,11 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    # Windows CI loads this module through unittest and does not install pytest.
+    pytest = None
 
 from ok.device.interaction_methods import macos_quartz as inputs
 from ok.task.exceptions import TaskDisabledException
