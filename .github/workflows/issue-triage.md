@@ -1,7 +1,7 @@
 ---
 description: "Use GitHub Copilot to classify, tag, investigate, and answer repository issues"
 
-# Issue automation is disabled; only pull-request-review should run.
+# Issue automation is disabled.
 on:
   workflow_dispatch:
 
