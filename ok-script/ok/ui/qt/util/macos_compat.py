@@ -1,11 +1,22 @@
-"""One idempotent macOS compatibility layer for Fluent spin boxes."""
+"""Optional macOS tweaks for the retired Fluent spin boxes.
+
+The live UI uses the kit ``NumberBox``. These helpers stay importable without
+PySide6-Fluent-Widgets, which upstream no longer ships.
+"""
 import os
 import sys
 
 from PySide6.QtWidgets import QSpinBox
-from qfluentwidgets.components.widgets.spin_box import CompactSpinBox
 
 SPINBOX_QSS = '\n        QAbstractSpinBox::up-button, QAbstractSpinBox::down-button,\n        SpinBox::up-button, SpinBox::down-button,\n        DoubleSpinBox::up-button, DoubleSpinBox::down-button,\n        CompactSpinBox::up-button, CompactSpinBox::down-button,\n        CompactDoubleSpinBox::up-button, CompactDoubleSpinBox::down-button {\n            width: 0px;\n            height: 0px;\n            border: none;\n        }\n    '
+
+
+def _compact_spin_box_type():
+    try:
+        from qfluentwidgets.components.widgets.spin_box import CompactSpinBox
+    except ImportError:
+        return ()
+    return CompactSpinBox
 
 
 def fix_spinbox_layout(spin_box):
@@ -14,7 +25,7 @@ def fix_spinbox_layout(spin_box):
     spin_box.setButtonSymbols(QSpinBox.UpDownArrows)
     if SPINBOX_QSS not in spin_box.styleSheet():
         spin_box.setStyleSheet(spin_box.styleSheet() + SPINBOX_QSS)
-    margin = 30 if isinstance(spin_box, CompactSpinBox) else 80
+    margin = 30 if isinstance(spin_box, _compact_spin_box_type()) else 80
     spin_box.lineEdit().setTextMargins(10, 0, margin, 0)
 
 
@@ -33,8 +44,11 @@ def install_macos_compatibility():
         except Exception:
             pass
 
-    import qfluentwidgets.common.style_sheet as sheets
-    from qfluentwidgets.components.widgets.spin_box import SpinBoxBase
+    try:
+        import qfluentwidgets.common.style_sheet as sheets
+        from qfluentwidgets.components.widgets.spin_box import CompactSpinBox, SpinBoxBase
+    except ImportError:
+        return
     if getattr(sheets.getStyleSheetFromFile, '_ok_macos', False):
         return
     original_sheet = sheets.getStyleSheetFromFile

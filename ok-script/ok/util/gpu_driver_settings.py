@@ -325,17 +325,22 @@ def get_enabled_gpu_driver_post_processing(target_exe_path: Optional[str] = None
 
     if not windows_hdr_active:
         logger.info("NVIDIA RTX HDR enabled: False (Windows HDR is not enabled)")
-    elif nvidia_filter_profile_active is not False:
+    elif nvidia_filter_profile_active is True:
         result = _run_gpu_feature_detector(
             "is_nvidia_rtx_hdr_enabled",
             lambda: is_nvidia_rtx_hdr_enabled(target_exe_path),
         )
         if result and result.enabled:
             enabled.append(result)
-    else:
+    elif nvidia_filter_profile_active is False:
         logger.info(
             "NVIDIA RTX HDR enabled: False "
             f"(NVIDIA filter profile is not in use: {nvidia_filter_profile_detail})"
+        )
+    else:
+        logger.info(
+            "NVIDIA RTX HDR enabled: Unknown "
+            f"(active NVIDIA filter profile not confirmed: {nvidia_filter_profile_detail})"
         )
 
     logger.info(f"GPU driver post-processing detected features: {enabled}")
@@ -447,23 +452,27 @@ def is_nvidia_rtx_dynamic_vibrance_enabled() -> Optional[GpuDriverPostProcessing
 
 
 def is_nvidia_rtx_hdr_enabled(target_exe_path: Optional[str] = None) -> Optional[GpuDriverPostProcessing]:
+    # A configured NVIDIA App preference is not proof that Alt+F3 filters are
+    # active. In particular, nvdrsdb can contain [1, 1] while slot 0 is selected.
+    # Off Windows the profile check returns unknown and this stays a no-op.
+    profile_active, detail = _nvidia_filter_profile_in_use_state(target_exe_path)
+    if profile_active is not True:
+        state = "False" if profile_active is False else "Unknown"
+        logger.info(f"NVIDIA RTX HDR enabled: {state} (active filter profile not confirmed: {detail})")
+        return None
+
     hit = _detect_nvidia_drs_flags(
         (NV_DRS_RTX_HDR_ENABLE_ID,),
         lambda value: value == 1,
         "RTX HDR",
+        allow_db_fallback=False,
     )
     if hit:
         _log_feature_enabled("NVIDIA RTX HDR", hit)
         return hit
 
-    result = _detect_nvidia_drs_flags(
-        (NV_DRS_RTX_HDR_DRIVER_FLAGS_ID,),
-        lambda value: value != 0,
-        "RTX HDR",
-        detail_suffix="driver_flags",
-    )
-    _log_feature_enabled("NVIDIA RTX HDR", result)
-    return result
+    logger.info("NVIDIA RTX HDR enabled: Unknown (RTX HDR profile setting unavailable)")
+    return None
 
 
 def _log_feature_enabled(feature_name: str, result: Optional[GpuDriverPostProcessing]):
@@ -804,6 +813,7 @@ def _detect_nvidia_drs_flags(
     is_enabled_value: Callable[[int], bool],
     feature_name: str,
     detail_suffix: str = "value",
+    allow_db_fallback: bool = True,
 ) -> Optional[GpuDriverPostProcessing]:
     api_hits = _scan_nvapi_profiles(setting_ids, is_enabled_value)
     if api_hits:
@@ -819,6 +829,9 @@ def _detect_nvidia_drs_flags(
             enabled=True,
             detail=detail,
         )
+
+    if not allow_db_fallback:
+        return None
 
     for setting_id in setting_ids:
         if _nv_drs_db_setting_is_on(setting_id, is_enabled_value):

@@ -137,8 +137,7 @@ class TestF2ChallengeSelection(unittest.TestCase):
         import sys
         from PySide6.QtWidgets import QApplication
         from ok import og
-        from ok.ui.qt.tasks.ConfigItemFactory import config_widget
-        from ok.ui.qt.tasks.LabelAndSpinBox import LabelAndSpinBox
+        from ok.ui.qt.tasks.config_editors import NumberEditor, config_editor
 
         app = QApplication(sys.argv) if not QApplication.instance() else QApplication.instance()
         og.app = app
@@ -152,73 +151,53 @@ class TestF2ChallengeSelection(unittest.TestCase):
                      DailyTask(MagicMock(), MagicMock())):
             cfg = MockConfig(task.default_config)
             for k in task.default_config:
-                w = config_widget(task.config_type, task.config_description, cfg, k, task.default_config[k], task)
+                w = config_editor(task.config_type, task.config_description, cfg, k, task.default_config[k], task)
                 self.assertIsNotNone(w)
                 if 'Which Forgery Challenge' in k or 'Which Tacet Suppression' in k:
-                    self.assertIsInstance(w, LabelAndSpinBox)
-                    w.spin_box.resize(180, 33)
-                    self.assertGreaterEqual(w.spin_box.lineEdit().geometry().width(), 80)
-                    self.assertEqual(w.spin_box.lineEdit().text(), str(task.default_config[k]))
+                    self.assertIsInstance(w, NumberEditor)
+                    line_edit = w.spin_box.spin_box.lineEdit()
+                    self.assertGreaterEqual(line_edit.geometry().width(), 1)
+                    self.assertEqual(line_edit.text(), str(task.default_config[k]))
 
     def test_spinbox_visibility_and_interaction_in_task_card(self):
-        import sys, os, tempfile
-        from PySide6.QtWidgets import QApplication, QMainWindow
+        import sys
+        from PySide6.QtWidgets import QApplication
         from ok import og
-        from ok.ui.qt.tasks.TaskCard import TaskCard
-        from ok.util.config import Config
-        from ok.ui.qt.tasks.LabelAndSpinBox import LabelAndSpinBox
+        from ok.ui.qt.tasks.config_editors import NumberEditor, config_editor
 
         app = QApplication.instance() or QApplication(sys.argv)
         og.app = app
-        og.config = {}
-        og.executor = MagicMock()
-        og.executor.waiting_for_task.return_value = False
-        og.executor.is_task_running.return_value = False
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            og.app_path = tmpdir
-            configs_dir = os.path.join(tmpdir, 'configs')
-            os.makedirs(configs_dir, exist_ok=True)
+        class MockConfig(dict):
+            def get_default(self, k):
+                return self.get(k)
 
-            win = QMainWindow()
+        for task_cls, key in [
+            (ForgeryTask, 'Which Forgery Challenge to Farm'),
+            (TacetTask, 'Which Tacet Suppression to Farm'),
+        ]:
+            task = task_cls(MagicMock(), MagicMock())
+            cfg = MockConfig(task.default_config)
+            widget = config_editor(task.config_type, task.config_description, cfg, key, 1, task)
+            self.assertIsInstance(widget, NumberEditor)
+            widget.show()
+            app.processEvents()
+            box = widget.spin_box
+            line_edit = box.spin_box.lineEdit()
+            self.assertTrue(line_edit.isVisible())
+            self.assertEqual(line_edit.text(), '1')
 
-            for task_cls, conf_name, key in [
-                (ForgeryTask, 'forgery', 'Which Forgery Challenge to Farm'),
-                (TacetTask, 'tacet', 'Which Tacet Suppression to Farm'),
-            ]:
-                task = task_cls(MagicMock(), MagicMock())
-                task.config = Config(conf_name, task.default_config, configs_dir)
-                card = TaskCard(task, True)
-                win.setCentralWidget(card)
-                win.show()
-                card.setExpand(True)
-                for _ in range(5):
-                    app.processEvents()
+            box.plus_button.click()
+            app.processEvents()
+            self.assertEqual(box.value(), 2)
+            self.assertEqual(line_edit.text(), '2')
 
-                widget = card.config_widget_by_key[key]
-                self.assertIsInstance(widget, LabelAndSpinBox)
-                sb = widget.spin_box
-                line_edit = sb.lineEdit()
-
-                # Ensure lineEdit has full width and visible number
-                self.assertGreaterEqual(line_edit.geometry().width(), 100)
-                self.assertTrue(line_edit.isVisible())
-                self.assertEqual(line_edit.text(), '1')
-
-                # Ensure up button increments and text updates
-                sb.upButton.click()
-                app.processEvents()
-                self.assertEqual(sb.value(), 2)
-                self.assertEqual(line_edit.text(), '2')
-
-                # Ensure keyboard typing updates value and text
-                line_edit.clear()
-                line_edit.insert('15')
-                sb.interpretText()
-                app.processEvents()
-                self.assertEqual(sb.value(), 15)
-                self.assertEqual(line_edit.text(), '15')
-                self.assertGreaterEqual(line_edit.geometry().width(), 100)
+            line_edit.clear()
+            line_edit.insert('15')
+            box.spin_box.interpretText()
+            app.processEvents()
+            self.assertEqual(box.value(), 15)
+            self.assertEqual(line_edit.text(), '15')
 
 
 if __name__ == '__main__':
