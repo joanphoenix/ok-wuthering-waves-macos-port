@@ -1,6 +1,6 @@
 # ok-wuthering-waves-macos-port
 
-Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool for *Wuthering Waves* (`ok-wuthering-waves` & `ok-script`). Includes upstream **v3.7.20-beta.1** (and **v3.7.19**) source changes, with the required template-loading and native UI support backported into the bundled Mac framework.
+Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool for *Wuthering Waves* (`ok-wuthering-waves` & `ok-script`). Tracks upstream **v3.8.3** ([ok-oldking/ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.3)) with vendored **ok-script 3.0.5b9**. macOS capture, input, paths, and native UI stay in this tree.
 
 ---
 
@@ -20,7 +20,8 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
 
 - **High-Performance macOS Capture & Inference**:
   - **Capture**: Native `CoreGraphics` / `Quartz` screen capture pipeline replacing Windows BitBlt/GDI/WGC.
-  - **Inference**: YOLOv8 uses CoreML when available, with CPU fallback. ONNX OCR currently runs on CPU.
+  - **Inference**: YOLOv8 uses CoreML when available, with CPU fallback. ONNX OCR uses PP-OCRv6 and currently runs on CPU.
+  - **Input**: `PostMessage` stays the default and is the Quartz event backend on macOS. `Pynput` is available as a second input method.
   - **Process Detection**: Direct integration with the native macOS client (`Client-Mac-Shipping`).
 
 - **Gameplay & Character Support**:
