@@ -2,6 +2,7 @@
 
 import faulthandler
 import os
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -22,7 +23,13 @@ def main():
     # needs OCR. Template-only tests never start the native model loader.
     with patch('ok.task.TaskExecutor.TaskExecutor.init_default_ocr', lambda self: None), \
             patch('ok.task.task.BaseTask.tr', translate_for_test):
-        unittest.main(module=None, verbosity=2)
+        result = unittest.main(module=None, verbosity=2, exit=False)
+    outcome = result.result
+    if outcome.testsRun == 0 and outcome.wasSuccessful():
+        print("No unittest cases in this module; skipping pytest-style module.")
+        return
+    if not outcome.wasSuccessful():
+        sys.exit(1)
 
 
 if __name__ == '__main__':

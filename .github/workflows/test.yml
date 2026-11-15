@@ -50,6 +50,10 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
+          # The lockfile installs published ok-script. The port's integer editors
+          # and macOS helpers live in the vendored tree, so tests must import that.
+          $env:OK_SCRIPT_BUILD_VERSION = "3.0.5b9+macos.1"
+          pip install --no-deps -e ./ok-script
 
       - name: Run tests
         timeout-minutes: 20
