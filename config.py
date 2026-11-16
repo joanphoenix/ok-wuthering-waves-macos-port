@@ -13,12 +13,15 @@ version = "dev"
 
 
 def _find_macos_pc_exe():
-    mac_candidates = (
-        Path("/Applications/Wuthering Waves.app/Contents/MacOS/Client-Mac-Shipping"),
-        Path.home() / "Applications/Wuthering Waves.app/Contents/MacOS/Client-Mac-Shipping",
-        Path("/Applications/Wuthering Waves.app"),
-        Path.home() / "Applications/Wuthering Waves.app",
-    )
+    # The app bundle is named "Wuthering Waves.app" or "WutheringWaves.app" depending on how it was installed.
+    app_names = ("Wuthering Waves.app", "WutheringWaves.app")
+    mac_candidates = []
+    for base in (Path("/Applications"), Path.home() / "Applications"):
+        for app_name in app_names:
+            mac_candidates.append(base / app_name / "Contents/MacOS/Client-Mac-Shipping")
+    for base in (Path("/Applications"), Path.home() / "Applications"):
+        for app_name in app_names:
+            mac_candidates.append(base / app_name)
     for candidate in mac_candidates:
         if candidate.exists():
             return str(candidate)

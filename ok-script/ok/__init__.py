@@ -399,6 +399,10 @@ class App(_OverlayConfigMixin):
                 self.po_translation = get_translations(locale_name)
                 self.po_translation.install()
                 logger.info(f'translation installed for {locale_name}')
+            except FileNotFoundError:
+                # No catalog (e.g. English is the source language): keys are returned untranslated.
+                logger.debug(f'no translation catalog for {locale_name}')
+                self.po_translation = "Failed"
             except:
                 logger.error(f'install translations error for {locale_name}')
                 self.po_translation = "Failed"
