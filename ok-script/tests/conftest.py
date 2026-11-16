@@ -30,6 +30,22 @@ NEEDS_ADBUTILS = (
     "test_nemu_ipc_capture.py::TestNemuIpcCaptureMethod::test_first_capture_initializes_then_uses_screenshot",
 )
 
+# These modules cover the pre-3.0 Fluent widgets that still ship in this port
+# (upstream deleted them). qfluentwidgets is not a declared dependency, and the
+# live UI no longer imports it, so they can only be collected where it happens
+# to be installed.
+NEEDS_QFLUENTWIDGETS = (
+    "test_config_card.py",
+    "test_expand_card_layout.py",
+    "test_qt_legacy_imports.py",
+    "test_start_tab_overlay.py",
+    "test_task_ui.py",
+)
+
+collect_ignore = []
+if importlib.util.find_spec("qfluentwidgets") is None:
+    collect_ignore.extend(NEEDS_QFLUENTWIDGETS)
+
 
 def pytest_collection_modifyitems(items):
     windows = sys.platform == "win32"
