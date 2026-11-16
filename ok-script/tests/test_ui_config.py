@@ -18,9 +18,16 @@ def test_nested_qt_config_uses_nested_window_size():
     }) == {"type": "qt", "window_size": size}
 
 
-def test_web_gui_is_rejected():
-    with pytest.raises(ValueError, match="gui.type must be 'qt'"):
-        resolve_ui_config({"gui": {"type": "web"}})
+def test_web_gui_resolves_with_launch_mode():
+    # main_web.py and `run_macos.sh --web` depend on the web type resolving.
+    assert resolve_ui_config({"gui": {"type": "web"}}) == {
+        "type": "web", "window_size": DEFAULT_WINDOW_SIZE, "launch_mode": "pywebview",
+    }
+    assert resolve_ui_config({"gui": {"type": "web", "launch_mode": "server"}})["launch_mode"] == "server"
+
+
+def test_qt_gui_has_no_launch_mode():
+    assert "launch_mode" not in resolve_ui_config({"gui": {"type": "qt", "launch_mode": "server"}})
 
 
 def test_legacy_use_gui_true_means_qt():

@@ -127,3 +127,44 @@ def test_focus_is_rechecked_at_event_dispatch():
             interaction.send_key_down('r')
         quartz.CGEventPost.assert_not_called()
         quartz.CGEventPostToPid.assert_not_called()
+
+
+def test_swipe_releases_where_the_drag_ended():
+    quartz = MagicMock()
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=lambda: True,
+                             get_abs_cords=lambda x, y: (x, y))
+    with patch.object(inputs, 'Quartz', quartz), patch.object(inputs.time, 'sleep'):
+        interaction = inputs.MacOSQuartzInteraction(None, window)
+        interaction.swipe(100, 100, 400, 300, 700)
+    mouse_events = [call.args[1:3] for call in quartz.CGEventCreateMouseEvent.call_args_list]
+    assert mouse_events[-2] == (quartz.kCGEventLeftMouseDragged, (400.0, 300.0))
+    # Releasing at the start point would drag the content back again.
+    assert mouse_events[-1] == (quartz.kCGEventLeftMouseUp, (400.0, 300.0))
+    assert not interaction._held_buttons
+
+
+def test_swipe_interrupted_by_focus_loss_releases_once():
+    quartz = MagicMock()
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=MagicMock(return_value=True),
+                             get_abs_cords=lambda x, y: (x, y))
+
+    def lose_focus_after_press(_tap, _event):
+        if quartz.CGEventPost.call_count == 3:  # move, move, button down
+            window.is_foreground.return_value = False
+
+    quartz.CGEventPost.side_effect = lose_focus_after_press
+    with patch.object(inputs, 'Quartz', quartz), patch.object(inputs.time, 'sleep'), \
+            patch.object(inputs, 'get_window_pid', return_value=42):
+        interaction = inputs.MacOSQuartzInteraction(None, window)
+        with pytest.raises(TaskDisabledException):
+            interaction.swipe(100, 100, 400, 300, 700)
+    assert not interaction._held_buttons
+    assert quartz.CGEventPostToPid.call_count == 1
+
+
+def test_web_launch_mode_still_resolves():
+    # main_web.py and `run_macos.sh --web` need the web type. Upstream ok-script
+    # dropped it, so a vendored merge can silently break the web launch again.
+    from ok.core.ui_config import resolve_ui_config
+    resolved = resolve_ui_config({'gui': {'type': 'web', 'launch_mode': 'pywebview'}})
+    assert (resolved['type'], resolved['launch_mode']) == ('web', 'pywebview')
