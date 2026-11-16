@@ -69,6 +69,9 @@ class MacOSQuartzInteraction(BaseInteraction):
         self.check_clickable = True
         self._held_keys = set()
         self._held_buttons = {}
+        self._input_permission_error_shown = False
+        if Quartz is not None:
+            logger.info(f'macOS input posting permission: {Quartz.CGPreflightPostEventAccess()}')
 
     @property
     def hwnd(self):
@@ -88,6 +91,8 @@ class MacOSQuartzInteraction(BaseInteraction):
         # Unreal's game input needs the HID event stream. Recheck focus at
         # dispatch instead of relying only on the public method's entry check.
         if self.clickable():
+            if not release:
+                self._require_input_permission()
             Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
         elif release:
             # Release held game inputs without sending new actions to another app.
@@ -96,6 +101,28 @@ class MacOSQuartzInteraction(BaseInteraction):
                 Quartz.CGEventPostToPid(pid, event)
         else:
             self._require_foreground()
+
+    def _require_input_permission(self):
+        # Screen capture and input posting are separate TCC permissions. Check
+        # in this process: launching from another terminal/IDE can change which
+        # host macOS requires the user to authorize. CGEventPost fails silently.
+        if Quartz is None:
+            raise RuntimeError('macOS Quartz input is unavailable')
+        if not Quartz.CGPreflightPostEventAccess():
+            message = (
+                'macOS is blocking keyboard and mouse input. Open System Settings > '
+                'Privacy & Security > Accessibility and enable the app used to launch '
+                'this tool (for example Claude Code, Terminal, or your editor). '
+                'Then fully quit and reopen that app and restart ok-ww. '
+                'Screen Recording permission alone does not allow input.'
+            )
+            if not self._input_permission_error_shown:
+                from ok.core.notifications import alert_error
+                self._input_permission_error_shown = True
+                logger.error(message)
+                alert_error(message)
+            raise PermissionError(message)
+        self._input_permission_error_shown = False
 
     def on_destroy(self):
         for key in tuple(self._held_keys):
@@ -151,7 +178,7 @@ class MacOSQuartzInteraction(BaseInteraction):
                 self._held_buttons.pop(button_name, None)
             elif event_type in {Quartz.kCGEventLeftMouseDown, Quartz.kCGEventRightMouseDown, Quartz.kCGEventOtherMouseDown}:
                 self._held_buttons[button_name] = (abs_x, abs_y)
-        except TaskDisabledException:
+        except (TaskDisabledException, PermissionError):
             raise
         except Exception as e:
             logger.error(f"_post_mouse_event error: {e}")
@@ -228,7 +255,7 @@ class MacOSQuartzInteraction(BaseInteraction):
                     )
                     self._post_to_game(ev)
                     time.sleep(0.002)
-            except TaskDisabledException:
+            except (TaskDisabledException, PermissionError):
                 raise
             except Exception as e:
                 logger.error(f"scroll error: {e}")

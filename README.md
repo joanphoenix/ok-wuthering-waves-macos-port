@@ -81,7 +81,7 @@ Keep the game in the foreground while automation runs. Input stops when another 
 
 Because automation tools require reading the game window content and sending simulated inputs, macOS requires granting permissions:
 1. **Screen Recording**: System Settings $\rightarrow$ Privacy & Security $\rightarrow$ Screen Recording $\rightarrow$ Enable Terminal (or your Python / IDE host).
-2. **Accessibility**: System Settings $\rightarrow$ Privacy & Security $\rightarrow$ Accessibility $\rightarrow$ Enable Terminal.
+2. **Accessibility**: System Settings $\rightarrow$ Privacy & Security $\rightarrow$ Accessibility $\rightarrow$ Enable the terminal or editor that actually launches the app. If you use Claude Code, this may be Claude Code or its host terminal/editor. Fully quit and reopen that host after changing permission, then restart ok-ww. Screen Recording allows the app to see the game; Accessibility separately allows keyboard and mouse input. The app reports an error when macOS blocks input.
 
 ---
 

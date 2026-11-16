@@ -126,7 +126,7 @@ class PynputInteraction(BaseInteraction):
         self.move(x, y)
         time.sleep(0.001)
 
-        controller = mouse.Controller()
+        controller = self._new_mouse_controller()
         for i in range(abs(scroll_amount)):
             if not self.clickable():
                 self.on_destroy()
@@ -141,7 +141,7 @@ class PynputInteraction(BaseInteraction):
             return
 
         abs_x, abs_y = self.capture.get_abs_cords(x, y)
-        controller = mouse.Controller()
+        controller = self._new_mouse_controller()
         controller.position = (abs_x, abs_y)
 
     def swipe(self, x1, y1, x2, y2, duration, settle_time=0):
@@ -150,7 +150,7 @@ class PynputInteraction(BaseInteraction):
             return
         x1, y1 = self.capture.get_abs_cords(x1, y1)
         x2, y2 = self.capture.get_abs_cords(x2, y2)
-        controller = mouse.Controller()
+        controller = self._new_mouse_controller()
         controller.position = (x1, y1)
         time.sleep(0.1)
         if not self.clickable():
@@ -177,7 +177,7 @@ class PynputInteraction(BaseInteraction):
             logger.info(f"window in background, not clickable")
             return
 
-        controller = mouse.Controller()
+        controller = self._new_mouse_controller()
         current_pos = None
         if move_back:
             current_pos = controller.position
@@ -206,7 +206,7 @@ class PynputInteraction(BaseInteraction):
             logger.info(f"window in background, not clickable")
             return
 
-        controller = mouse.Controller()
+        controller = self._new_mouse_controller()
         if x != -1 and y != -1:
             abs_x, abs_y = self.capture.get_abs_cords(x, y)
             logger.info(f"mouse_down {abs_x, abs_y}")
@@ -226,6 +226,12 @@ class PynputInteraction(BaseInteraction):
         if key == "middle":
             return mouse.Button.middle
         return mouse.Button.left
+
+    def _new_mouse_controller(self):
+        if self._native_keyboard is not None:
+            self._native_keyboard._require_input_permission()
+        from pynput import mouse
+        return mouse.Controller()
 
     def mouse_up(self, key="left"):
         from pynput import mouse

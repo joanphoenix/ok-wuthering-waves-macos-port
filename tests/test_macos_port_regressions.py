@@ -168,3 +168,30 @@ def test_web_launch_mode_still_resolves():
     from ok.core.ui_config import resolve_ui_config
     resolved = resolve_ui_config({'gui': {'type': 'web', 'launch_mode': 'pywebview'}})
     assert (resolved['type'], resolved['launch_mode']) == ('web', 'pywebview')
+
+
+def test_denied_input_permission_reports_instead_of_silently_posting():
+    quartz = MagicMock()
+    quartz.CGPreflightPostEventAccess.return_value = False
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=lambda: True,
+                             get_abs_cords=lambda x, y: (x, y))
+    with patch.object(inputs, 'Quartz', quartz), \
+         patch('ok.core.notifications.alert_error') as alert:
+        interaction = inputs.MacOSQuartzInteraction(None, window)
+        for action in [lambda: interaction.send_key_down('e'),
+                       lambda: interaction.mouse_down(10, 10)]:
+            with pytest.raises(PermissionError, match='Accessibility'):
+                action()
+        quartz.CGEventPost.assert_not_called()
+        alert.assert_called_once()
+        assert 'Claude Code' in alert.call_args.args[0]
+
+        # Granting permission should immediately allow a retry in this process.
+        quartz.CGPreflightPostEventAccess.return_value = True
+        interaction.send_key_down('e')
+        quartz.CGEventPost.assert_called_once()
+        # Releases remain possible if permission changes while input is held.
+        quartz.CGPreflightPostEventAccess.return_value = False
+        interaction.send_key_up('e')
+        assert not interaction._held_keys
+        assert quartz.CGEventPost.call_count == 2
