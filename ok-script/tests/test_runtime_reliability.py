@@ -16,7 +16,7 @@ def input_backend():
     window.is_foreground.return_value = True
     capture = MagicMock()
     capture.get_abs_cords.side_effect = lambda x, y: (x, y)
-    with patch.dict('sys.modules', {'pynput': fake}), patch('ok.device.interaction_methods.pynput.is_admin', return_value=True):
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'win32'), patch.dict('sys.modules', {'pynput': fake}), patch('ok.device.interaction_methods.pynput.is_admin', return_value=True):
         yield PynputInteraction(capture, window), window, controller
 
 
@@ -66,3 +66,71 @@ def test_duplicate_launch_does_not_kill_owner(tmp_path):
         with patch.object(process, '_mutex_handle', None), patch.object(process.tempfile, 'gettempdir', return_value=str(tmp_path)), patch.object(process, '_terminate_previous_instances') as terminate:
             assert not process.check_mutex(wait_time=0)
             terminate.assert_not_called()
+
+
+def test_macos_combat_keyboard_never_constructs_pynput_controller():
+    """Carbon layout lookup in Controller() traps on the combat worker."""
+    from threading import Thread
+    from ok.device.interaction_methods import macos_quartz
+    native = MagicMock()
+    errors = []
+    fake_pynput = SimpleNamespace(keyboard=SimpleNamespace(
+        Controller=MagicMock(side_effect=AssertionError('unsafe Carbon layout lookup'))))
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'darwin'), \
+         patch.object(macos_quartz, 'MacOSQuartzInteraction', return_value=native), \
+         patch.dict('sys.modules', {'pynput': fake_pynput}):
+        backend = PynputInteraction(None, MagicMock())
+        def combat():
+            try:
+                backend.send_key('w', down_time=0)
+                backend.send_key_down('shift')
+                backend.send_key_up('shift')
+                backend.on_destroy()
+            except BaseException as error:
+                errors.append(error)
+        worker = Thread(target=combat)
+        worker.start()
+        worker.join(timeout=3)
+        assert not worker.is_alive()
+        assert not errors
+        native.send_key_down.assert_any_call('w')
+        native.send_key_up.assert_any_call('w')
+        native.send_key_down.assert_any_call('shift')
+        native.send_key_up.assert_any_call('shift')
+        native.on_destroy.assert_called_once()
+        fake_pynput.keyboard.Controller.assert_not_called()
+
+
+def test_macos_combat_interruption_releases_native_key():
+    from ok.device.interaction_methods import macos_quartz
+    native = MagicMock()
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'darwin'), \
+         patch.object(macos_quartz, 'MacOSQuartzInteraction', return_value=native):
+        backend = PynputInteraction(None, MagicMock())
+        with patch('ok.device.interaction_methods.pynput.time.sleep', side_effect=RuntimeError('cancelled')):
+            with pytest.raises(RuntimeError, match='cancelled'):
+                backend.send_key('w')
+        native.send_key_up.assert_called_once_with('w')
+
+
+def test_macos_pynput_cleanup_releases_native_keys_and_pynput_mouse_after_focus_loss():
+    from ok.device.interaction_methods import macos_quartz
+    quartz, mouse = MagicMock(), MagicMock()
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=MagicMock(return_value=True))
+    fake = SimpleNamespace(mouse=SimpleNamespace(Controller=lambda: mouse,
+                           Button=SimpleNamespace(left='left', right='right', middle='middle')))
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'darwin'), \
+         patch.object(macos_quartz, 'Quartz', quartz), \
+         patch.object(macos_quartz, 'get_window_pid', return_value=42), \
+         patch.dict('sys.modules', {'pynput': fake}):
+        backend = PynputInteraction(None, window)
+        backend.send_key_down('w')
+        backend.mouse_down()
+        window.is_foreground.return_value = False
+        backend.on_destroy()
+        quartz.CGEventCreateKeyboardEvent.assert_any_call(None, macos_quartz.MAC_KEYCODE_MAP['w'], False)
+        assert quartz.CGEventPost.call_count == 1
+        assert quartz.CGEventPostToPid.call_count == 1
+        mouse.release.assert_called_once_with('left')
+        assert not backend._native_keyboard._held_keys
+        assert not backend._held_buttons

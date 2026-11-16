@@ -1,3 +1,4 @@
+import sys
 import time
 
 from ok.device.capture_methods.base import BaseCaptureMethod
@@ -35,7 +36,14 @@ class PynputInteraction(BaseInteraction):
         self.check_clickable = True
         self._held_keys = {}
         self._held_buttons = {}
-        if not is_admin():
+        self._native_keyboard = None
+        if sys.platform == 'darwin':
+            # Pynput Controller() queries Carbon's keyboard layout. Once Cocoa
+            # text input is initialized, that query traps on the combat worker.
+            # Native game keycodes avoid Carbon entirely, including in web mode.
+            from ok.device.interaction_methods.macos_quartz import MacOSQuartzInteraction
+            self._native_keyboard = MacOSQuartzInteraction(capture, hwnd_window)
+        elif not is_admin():
             logger.error(f"You must be an admin to use PynputInteraction")
 
     def clickable(self):
@@ -56,7 +64,6 @@ class PynputInteraction(BaseInteraction):
             return key
 
     def send_key(self, key, down_time=0.01):
-        from pynput import keyboard
         if not self.clickable():
             logger.error(f"can't click on {key}, because capture is not clickable")
             return
@@ -68,17 +75,23 @@ class PynputInteraction(BaseInteraction):
             self.send_key_up(key)
 
     def send_key_down(self, key):
-        from pynput import keyboard
         if not self.clickable():
             logger.error(f"can't click on {key}, because capture is not clickable")
             return
 
+        if self._native_keyboard is not None:
+            self._native_keyboard.send_key_down(key)
+            return
+        from pynput import keyboard
         controller = keyboard.Controller()
         parsed_key = self._parse_key(str(key))
         controller.press(parsed_key)
         self._held_keys[parsed_key] = controller
 
     def send_key_up(self, key):
+        if self._native_keyboard is not None:
+            self._native_keyboard.send_key_up(key)
+            return
         from pynput import keyboard
         parsed_key = self._parse_key(str(key))
         controller = self._held_keys.get(parsed_key)
@@ -89,6 +102,8 @@ class PynputInteraction(BaseInteraction):
 
     def on_destroy(self):
         # Releases must remain possible after focus loss and task cancellation.
+        if self._native_keyboard is not None:
+            self._native_keyboard.on_destroy()
         for held in (self._held_keys, self._held_buttons):
             for value, controller in tuple(held.items()):
                 try:
