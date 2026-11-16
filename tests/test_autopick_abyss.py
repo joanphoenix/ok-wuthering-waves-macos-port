@@ -137,7 +137,7 @@ class AutoPickAbyssTest(unittest.TestCase):
         self.observe(100.1, False, True)
         region = self.combat.find_abyss_start_marker.call_args.kwargs['box']
         self.assertEqual(region.center(), self.marker.center())
-        self.assertEqual((region.width, region.height), (120, 90))
+        self.assertEqual((region.width, region.height), (160, 120))
         self.observe(100.2, False, False)
         self.combat.find_abyss_start_marker.assert_called_with(box=region)
         self.assertIsNone(self.pick.scene.abyss_start_marker_box)

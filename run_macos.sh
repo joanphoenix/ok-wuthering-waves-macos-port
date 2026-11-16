@@ -19,11 +19,15 @@ fi
 
 # Publish the fingerprint only after installation succeeds. Interrupted installs
 # retry on the next launch; dependency and launcher changes invalidate it.
+EXTRAS="default,ocr,qt"
+if [[ "${1:-}" == "--web" ]]; then
+    EXTRAS="$EXTRAS,web"
+fi
 INSTALL_STAMP="$SCRIPT_DIR/.venv/.macos-dependencies"
-INSTALL_KEY=$(shasum -a 256 "$SCRIPT_DIR/run_macos.sh" "$SCRIPT_DIR/ok-script/pyproject.toml" "$SCRIPT_DIR/pyproject.toml" | shasum -a 256)
+INSTALL_KEY="$EXTRAS:$(shasum -a 256 "$SCRIPT_DIR/run_macos.sh" "$SCRIPT_DIR/ok-script/pyproject.toml" "$SCRIPT_DIR/pyproject.toml" | shasum -a 256)"
 if [[ ! -f "$INSTALL_STAMP" ]] || [[ "$(cat "$INSTALL_STAMP")" != "$INSTALL_KEY" ]]; then
     "$PYTHON_BIN" -m pip install --upgrade pip
-    OK_SCRIPT_BUILD_VERSION=3.0.5b9+macos.1 "$PYTHON_BIN" -m pip install -e "$SCRIPT_DIR/ok-script[default,ocr,qt]" \
+    OK_SCRIPT_BUILD_VERSION=3.0.5b9+macos.1 "$PYTHON_BIN" -m pip install -e "$SCRIPT_DIR/ok-script[$EXTRAS]" \
         pyobjc-framework-Quartz pyobjc-framework-Cocoa pyobjc-framework-ApplicationServices \
         onnxruntime opencv-python polib 'mcp==2.3.0' 'dulwich==1.2.21' 'pyappify[standalone]>=1.0.20'
     print -r -- "$INSTALL_KEY" > "$INSTALL_STAMP"

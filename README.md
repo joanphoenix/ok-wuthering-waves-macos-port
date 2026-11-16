@@ -21,7 +21,7 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
 - **High-Performance macOS Capture & Inference**:
   - **Capture**: Native `CoreGraphics` / `Quartz` screen capture pipeline replacing Windows BitBlt/GDI/WGC.
   - **Inference**: YOLOv8 uses CoreML when available, with CPU fallback. ONNX OCR uses PP-OCRv6 and currently runs on CPU.
-  - **Input**: `PostMessage` stays the default and is the Quartz event backend on macOS. `Pynput` is available as a second input method.
+  - **Input**: `PostMessage` stays the default and is the Quartz event backend on macOS. `Pynput` is available as a second input method; on macOS it uses native game keycodes for the keyboard and Pynput for the mouse. This avoids a macOS keyboard-layout lookup crash when combat starts on a worker thread.
   - **Process Detection**: Direct integration with the native macOS client (`Client-Mac-Shipping`).
 
 - **Gameplay & Character Support**:
@@ -66,6 +66,12 @@ Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool 
      ```
 
 ---
+
+## Launch and recovery
+
+Opening the app twice leaves the existing instance running. Close it before starting another instance. If automation pauses after moving or minimizing the game, return it to a visible display and restart the interrupted task.
+
+The first `--web` launch installs the web interface dependencies. Switching launch modes refreshes the dependency stamp as needed.
 
 ## Input focus
 

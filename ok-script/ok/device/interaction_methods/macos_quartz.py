@@ -246,23 +246,33 @@ class MacOSQuartzInteraction(BaseInteraction):
         step_dx = (abs_x2 - abs_x1) / steps
         step_dy = (abs_y2 - abs_y1) / steps
 
-        if Quartz is not None:
-            for i in range(1, steps + 1):
-                cx = abs_x1 + int(i * step_dx)
-                cy = abs_y1 + int(i * step_dy)
-                self._post_mouse_event(
-                    Quartz.kCGEventLeftMouseDragged,
-                    cx,
-                    cy,
-                    Quartz.kCGMouseButtonLeft,
-                    dx=int(step_dx),
-                    dy=int(step_dy),
-                )
-                time.sleep(0.01)
+        try:
+            if Quartz is not None:
+                for i in range(1, steps + 1):
+                    if i == steps:
+                        cx, cy = abs_x2, abs_y2
+                    else:
+                        cx = abs_x1 + int(i * step_dx)
+                        cy = abs_y1 + int(i * step_dy)
+                    self._post_mouse_event(
+                        Quartz.kCGEventLeftMouseDragged,
+                        cx,
+                        cy,
+                        Quartz.kCGMouseButtonLeft,
+                        dx=int(step_dx),
+                        dy=int(step_dy),
+                    )
+                    # mouse_up() releases at mouse_pos. Leaving it at the start
+                    # point would snap the drag back before the button lifts.
+                    self.mouse_pos = (cx, cy)
+                    time.sleep(0.01)
 
-        if settle_time > 0:
-            time.sleep(settle_time)
-        self.mouse_up(key="left")
+            if settle_time > 0:
+                time.sleep(settle_time)
+        finally:
+            # A focus loss already released the button through on_destroy().
+            if "left" in self._held_buttons:
+                self.mouse_up(key="left")
 
     def _button_types(self, key="left"):
         if Quartz is None:

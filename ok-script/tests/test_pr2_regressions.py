@@ -12,7 +12,7 @@ def test_pynput_releases_after_focus_loss_and_destruction():
                                                  Button=SimpleNamespace(left='left', right='right', middle='middle')))
     window = MagicMock()
     window.is_foreground.return_value = True
-    with patch.dict('sys.modules', {'pynput': fake}), patch('ok.device.interaction_methods.pynput.is_admin', return_value=True):
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'win32'), patch.dict('sys.modules', {'pynput': fake}), patch('ok.device.interaction_methods.pynput.is_admin', return_value=True):
         backend = PynputInteraction(None, window)
         backend.send_key_down('w')
         backend.mouse_down()
@@ -37,7 +37,7 @@ def test_pynput_releases_after_focus_loss_and_destruction():
 def test_pynput_send_key_releases_when_sleep_is_interrupted():
     controller = MagicMock()
     fake = SimpleNamespace(keyboard=SimpleNamespace(Controller=lambda: controller, Key={}))
-    with patch.dict('sys.modules', {'pynput': fake}), patch('ok.device.interaction_methods.pynput.is_admin', return_value=True), patch('ok.device.interaction_methods.pynput.time.sleep', side_effect=RuntimeError('cancelled')):
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'win32'), patch.dict('sys.modules', {'pynput': fake}), patch('ok.device.interaction_methods.pynput.is_admin', return_value=True), patch('ok.device.interaction_methods.pynput.time.sleep', side_effect=RuntimeError('cancelled')):
         backend = PynputInteraction(None, MagicMock())
         with pytest.raises(RuntimeError):
             backend.send_key('w')

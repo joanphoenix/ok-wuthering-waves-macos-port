@@ -399,6 +399,10 @@ class App(_OverlayConfigMixin):
                 self.po_translation = get_translations(locale_name)
                 self.po_translation.install()
                 logger.info(f'translation installed for {locale_name}')
+            except FileNotFoundError:
+                # No catalog (e.g. English is the source language): keys are returned untranslated.
+                logger.debug(f'no translation catalog for {locale_name}')
+                self.po_translation = "Failed"
             except:
                 logger.error(f'install translations error for {locale_name}')
                 self.po_translation = "Failed"
@@ -718,7 +722,7 @@ class OK:
         if config.get('check_mutex', True):
             if not check_mutex_fn():
                 raise RuntimeError(
-                    'Another application instance is still running and could not be stopped safely.')
+                    'Another application instance is running. Close it before launching again.')
         og.ok = self
         if pyappify.app_version:
             config['version'] = pyappify.app_version

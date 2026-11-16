@@ -53,8 +53,10 @@ class _TouchScrollClickGuard(QObject):
             widget.update()
 
     def eventFilter(self, obj, event):
+        # The garbage collector can clear this wrapper's attributes before Qt
+        # deletes the C++ filter, which still receives teardown events.
         if (
-            not self._active
+            not getattr(self, "_active", False)
             or not isValid(self.scroll_area)
             or not isValid(self.scroller)
         ):

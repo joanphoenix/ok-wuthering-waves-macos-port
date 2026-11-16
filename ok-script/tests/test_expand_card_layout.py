@@ -3,7 +3,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtTest import QTest
+from qt_helpers import wait
 from PySide6.QtWidgets import QApplication, QLabel, QWidget
 from qfluentwidgets import ExpandLayout, ExpandSettingCard, FluentIcon
 
@@ -32,7 +32,7 @@ class TestExpandCardLayout(unittest.TestCase):
 
         collapsed_height = card.height()
         card.setExpand(True)
-        QTest.qWait(300)
+        wait(300)
         self.assertGreater(card.height(), collapsed_height)
 
         layout.removeWidget(card)

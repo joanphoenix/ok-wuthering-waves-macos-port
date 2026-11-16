@@ -248,8 +248,11 @@ class TestIcons(KitTestCase):
 
 class TestWidgets(KitTestCase):
     def test_kit_class_names_are_visible_to_stylesheets(self):
-        self.assertEqual("Button", Button("x").metaObject().className())
-        self.assertEqual("SettingRow", SettingRow("x").metaObject().className())
+        # Keep each widget alive: on PySide6 6.12 for macOS the meta object of a
+        # collected temporary dangles, and className() crashes the interpreter.
+        button, row = Button("x"), SettingRow("x")
+        self.assertEqual("Button", button.metaObject().className())
+        self.assertEqual("SettingRow", row.metaObject().className())
 
     def test_button_text_icon_and_hint(self):
         button = Button("Start", "power", "tonal", hint="F11")

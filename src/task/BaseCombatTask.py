@@ -402,8 +402,10 @@ class BaseCombatTask(CombatCheck):
         if has_f:
             self.scene.abyss_start_seen_at = time.monotonic() if marker else None
             self.scene.abyss_f_disappeared_at = None
-            # Keep some margin for the marker's motion while it fades out.
-            self.scene.abyss_start_marker_box = marker.scale(1.5) if marker else None
+            # Keep some margin for the marker's motion while it fades out. The tower marker template is
+            # about 1.3x larger than the plain one, so a 1.5x box built around the plain marker is too small
+            # to hold it and the template match aborts ("size greater than search area").
+            self.scene.abyss_start_marker_box = marker.scale(2) if marker else None
             return False
         if marker:
             # F can disappear slightly before the start marker fades out.

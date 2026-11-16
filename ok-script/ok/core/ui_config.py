@@ -10,7 +10,10 @@ DEFAULT_WINDOW_SIZE = {
     "min_height": 820,
 }
 
-GUI_TYPES = {"qt"}
+# Upstream ok-script 3.0 dropped the web UI. This port still ships ok.ui.web,
+# main_web.py and `run_macos.sh --web`, so the web type must keep resolving.
+GUI_TYPES = {"qt", "web"}
+WEB_LAUNCH_MODES = {"pywebview", "browser", "server"}
 
 
 def resolve_gui_icon(config):
@@ -28,18 +31,27 @@ def resolve_ui_config(config):
             raise ValueError("gui must be a mapping")
         gui_type = raw_gui.get("type")
         if gui_type not in GUI_TYPES:
-            raise ValueError("gui.type must be 'qt'")
+            raise ValueError("gui.type must be 'qt' or 'web'")
+        launch_mode = raw_gui.get("launch_mode", "pywebview")
+        if gui_type == "web" and launch_mode not in WEB_LAUNCH_MODES:
+            raise ValueError(
+                "gui.launch_mode must be 'pywebview', 'browser', or 'server'"
+            )
         window_size = raw_gui.get("window_size") or config.get("window_size")
     elif config.get("use_gui"):
         gui_type = "qt"
+        launch_mode = None
         window_size = config.get("window_size")
     else:
         return None
 
-    return {
+    resolved = {
         "type": gui_type,
         "window_size": dict(window_size or DEFAULT_WINDOW_SIZE),
     }
+    if gui_type == "web":
+        resolved["launch_mode"] = launch_mode
+    return resolved
 
 
 def resolve_window_size(config):
