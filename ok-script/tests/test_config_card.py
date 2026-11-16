@@ -5,7 +5,7 @@ from types import SimpleNamespace
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from PySide6.QtTest import QTest
+from qt_helpers import mouse_click
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import FluentIcon
 
@@ -60,7 +60,7 @@ class TestConfigCard(unittest.TestCase):
         card = self.create_card({})
 
         self.assertTrue(card.card.expandButton.isHidden())
-        QTest.mouseClick(card.card, Qt.LeftButton)
+        mouse_click(card.card, Qt.MouseButton.LeftButton)
         QApplication.processEvents()
 
         self.assertFalse(card.isExpand)
@@ -69,7 +69,7 @@ class TestConfigCard(unittest.TestCase):
         card = self.create_card({"Enabled": True})
 
         self.assertFalse(card.card.expandButton.isHidden())
-        QTest.mouseClick(card.card, Qt.LeftButton)
+        mouse_click(card.card, Qt.MouseButton.LeftButton)
         QApplication.processEvents()
 
         self.assertTrue(card.isExpand)
@@ -135,7 +135,7 @@ class TestConfigCard(unittest.TestCase):
             checkbox for checkbox in features_widget.check_boxes
             if checkbox.text() == "Feature B"
         )
-        QTest.mouseClick(feature_b_checkbox, Qt.LeftButton)
+        mouse_click(feature_b_checkbox, Qt.MouseButton.LeftButton)
         QApplication.processEvents()
 
         self.assertEqual(card.config["Features"], ["Feature A", "Feature B"])
@@ -143,7 +143,7 @@ class TestConfigCard(unittest.TestCase):
         self.assertFalse(card.config_widget_by_key["Feature B Setting"].isHidden())
         self.assertFalse(card.config_widget_by_key["Shared Setting"].isHidden())
 
-        QTest.mouseClick(feature_a_checkbox, Qt.LeftButton)
+        mouse_click(feature_a_checkbox, Qt.MouseButton.LeftButton)
         QApplication.processEvents()
 
         self.assertEqual(card.config["Features"], ["Feature B"])
@@ -151,7 +151,7 @@ class TestConfigCard(unittest.TestCase):
         self.assertFalse(card.config_widget_by_key["Feature B Setting"].isHidden())
         self.assertFalse(card.config_widget_by_key["Shared Setting"].isHidden())
 
-        QTest.mouseClick(feature_b_checkbox, Qt.LeftButton)
+        mouse_click(feature_b_checkbox, Qt.MouseButton.LeftButton)
         QApplication.processEvents()
 
         self.assertEqual(card.config["Features"], [])

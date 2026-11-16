@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtTest import QTest
+from qt_helpers import wait
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import ExpandLayout
 from shiboken6 import delete
@@ -158,12 +158,12 @@ class TestTaskUi(unittest.TestCase):
         header_height = card.viewportMargins().top()
 
         card.setExpand(True)
-        QTest.qWait(300)
+        wait(300)
         QApplication.processEvents()
         self.assertTrue(card.isExpand)
 
         card.setExpand(False)
-        QTest.qWait(300)
+        wait(300)
         QApplication.processEvents()
         self.assertFalse(card.isExpand)
         self.assertEqual(header_height, card.height())
