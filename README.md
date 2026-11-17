@@ -1,90 +1,170 @@
 # ok-wuthering-waves-macos-port
 
-Native **macOS Apple Silicon (M1/M2/M3/M4/M5 Pro)** port of the automation tool for *Wuthering Waves* (`ok-wuthering-waves` & `ok-script`). Tracks upstream **v3.8.3** ([ok-oldking/ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.3)) with vendored **ok-script 3.0.5b9**. macOS capture, input, paths, and native UI stay in this tree.
+A macOS Apple Silicon port of [ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves), an image-recognition automation tool for *Wuthering Waves*, built with [ok-script](https://github.com/ok-oldking/ok-script).
 
----
+This fork tracks upstream [v3.8.3](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.3) and includes a vendored, locally modified **ok-script 3.0.5b9**. macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
 
-## Highlights of the macOS Port
+## Features
 
-- **Native macOS UI Optimization**:
-  - Apple San Francisco typography (`.AppleSystemUIFont`, `PingFang SC`, `Menlo`) across Qt and Web UI.
-  - Native macOS Traffic Light window controls (Close, Minimize, Zoom) properly aligned and spaced in the unified title bar.
-  - Native macOS Global Menu Bar integration with standard shortcuts:
-    - **Preferences**: `Cmd + ,`
-    - **Quit**: `Cmd + Q`
-    - **Close Window**: `Cmd + W`
-    - **Tab Navigation**: `Cmd + 1` through `Cmd + 5`
-  - Dynamic System Accent Color support (reads your macOS accent preference via `NSColor.controlAccentColor`).
-  - Native Dark/Light theme switching and Dock click reactivation.
-  - Zero font alias resolution delays or DPI rounding policy warnings.
+- **Combat and exploration:** automatic combat, item pickup, dialogue skipping, login, and fast travel tasks.
+- **Daily activities and farming:** daily tasks, Echo farming, Nightmare Nests, Tacet Fields, Forgery Challenges, and Simulation Challenges.
+- **Echo management:** merge, enhance, and change Echoes.
+- **Additional tasks:** multi-account configuration and daily tasks, Garden, and Tacet Elimination.
+- **Character-specific combat logic:** includes Suoming (锁瞑) heavy attacks and burst sequences, and Douling (卜灵) Trigram detection.
 
-- **High-Performance macOS Capture & Inference**:
-  - **Capture**: Native `CoreGraphics` / `Quartz` screen capture pipeline replacing Windows BitBlt/GDI/WGC.
-  - **Inference**: YOLOv8 uses CoreML when available, with CPU fallback. ONNX OCR uses PP-OCRv6 and currently runs on CPU.
-  - **Input**: `PostMessage` stays the default and is the Quartz event backend on macOS. `Pynput` is available as a second input method; on macOS it uses native game keycodes for the keyboard and Pynput for the mouse. This avoids a macOS keyboard-layout lookup crash when combat starts on a worker thread.
-  - **Process Detection**: Direct integration with the native macOS client (`Client-Mac-Shipping`).
+These are tasks registered by the current [configuration](config.py). Availability in the UI does not establish that every task or character rotation has been verified on every macOS version.
 
-- **Gameplay & Character Support**:
-  - Full support for **Suoming (锁瞑)** with heavy attack rotation and burst sequences.
-  - Dynamic Trigram (卦象栏) detection for **Douling (卜灵)** charged attacks.
-  - Safe auto-combat state resets across disable/restart and healer switch lockout fallbacks.
+## Requirements and compatibility
 
----
+| Component | Requirement or current scope |
+| --- | --- |
+| Hardware | Apple Silicon Mac with a native `arm64` Python interpreter |
+| macOS | The oldest working release has not been established by a version-by-version test matrix; dependency requirements also apply |
+| Python | **3.12.x**, installed before running the launcher |
+| Git | Required to clone and update the repository |
+| Game | Native macOS *Wuthering Waves* client, identified as `Client-Mac-Shipping` |
+| Game display | **16:9**, at least **1280 × 720**; configured resize targets are 1280 × 720, 1600 × 900, 1920 × 1080, and 2560 × 1440 |
+| Permissions | Screen Recording and Accessibility for the app hosting the Python process |
+| Network | Needed to clone the repository and download dependencies on initial setup or dependency refresh |
 
-## Requirements
+Apple Silicon is the intended platform; Intel Macs and Rosetta Python environments are outside this guide's supported setup. The [macOS CI workflow](.github/workflows/macos.yml) runs launcher and runtime regression tests on `macos-latest` with Python 3.12. It does not establish a minimum macOS version or validate live gameplay across hardware generations.
 
-- **Operating System**: macOS 13.0+ (Ventura, Sonoma, Sequoia, or later)
-- **Architecture**: Apple Silicon (`arm64` — M1, M2, M3, M4, M5 Pro, Max, Ultra)
-- **Python**: Python 3.12
-- **Game**: *Wuthering Waves* installed at `/Applications/Wuthering Waves.app`
+Game discovery checks both `/Applications` and `~/Applications` for either `Wuthering Waves.app` or `WutheringWaves.app`. See [config.py](config.py) for the discovery logic.
 
----
+## Quick start
 
-## Quick Start
+### 1. Install and check prerequisites
 
-1. **Clone the Repository**:
-   ```bash
-   git clone git@github.com:joanphoenix/ok-wuthering-waves-macos-port.git
-   cd ok-wuthering-waves-macos-port
-   ```
+If you already have [Homebrew](https://docs.brew.sh/Installation), install Git and [Python 3.12](https://formulae.brew.sh/formula/python@3.12):
 
-2. **Launch the Native Qt Application**:
-   ```bash
-   chmod +x run_macos.sh
-   ./run_macos.sh
-   ```
-   *The launcher configures Python 3.12 dependencies on first run, retries interrupted installations, and refreshes them when dependency settings change.*
+```bash
+brew install git python@3.12
+```
 
-3. **Alternative Launch Modes**:
-   - **Browser Web UI Mode**:
-     ```bash
-     ./run_macos.sh --web
-     ```
-   - **Debug Mode**:
-     ```bash
-     ./run_macos.sh --debug
-     ```
+If you use another Python distribution, ensure its `python3.12` command is available in your terminal. A different Python minor version does not satisfy the launcher check.
 
----
+Verify the tools before continuing:
 
-## Launch and recovery
+```bash
+git --version
+python3.12 -c 'import platform, sys; print(sys.version); print(platform.machine()); assert sys.version_info[:2] == (3, 12); assert platform.machine() == "arm64"'
+```
 
-Opening the app twice leaves the existing instance running. Close it before starting another instance. If automation pauses after moving or minimizing the game, return it to a visible display and restart the interrupted task.
+The Python check must report Python 3.12 and `arm64`. If it reports `x86_64`, open a native terminal session and use an Apple Silicon Python installation.
 
-The first `--web` launch installs the web interface dependencies. Switching launch modes refreshes the dependency stamp as needed.
+### 2. Clone the repository
 
-## Input focus
+```bash
+git clone https://github.com/joanphoenix/ok-wuthering-waves-macos-port.git
+cd ok-wuthering-waves-macos-port
+```
 
-Keep the game in the foreground while automation runs. Input stops when another app gains focus; held keys and buttons are released to the game process. Return to the game before restarting the task.
+The public HTTPS URL works without configuring GitHub SSH keys.
 
-## Permissions Notice
+### 3. Grant macOS permissions
 
-Because automation tools require reading the game window content and sending simulated inputs, macOS requires granting permissions:
-1. **Screen Recording**: System Settings $\rightarrow$ Privacy & Security $\rightarrow$ Screen Recording $\rightarrow$ Enable Terminal (or your Python / IDE host).
-2. **Accessibility**: System Settings $\rightarrow$ Privacy & Security $\rightarrow$ Accessibility $\rightarrow$ Enable Terminal.
+Open **System Settings → Privacy & Security** and enable the following for the host you use to launch the tool, such as Terminal, iTerm, or your IDE:
 
----
+| Permission | Purpose |
+| --- | --- |
+| Screen Recording, or Screen & System Audio Recording | Read the game window |
+| Accessibility | Send keyboard and mouse input |
 
-## License
+Follow any macOS prompt to quit and reopen the host after changing permissions, then relaunch the tool. If macOS lists the Python process separately, grant permission to that entry as well.
 
-This project is licensed under the GPL-3.0 License. All original game assets, names, and trademarks belong to Kuro Games.
+### 4. Launch the application
+
+```bash
+chmod +x run_macos.sh
+./run_macos.sh
+```
+
+The launcher creates a local `.venv`, installs dependencies, and starts the Qt application. **It does not install Python itself.** The first launch can take longer while packages download.
+
+An interrupted dependency installation is retried on the next launch. Changes to the launcher or project dependency metadata invalidate the installation stamp and trigger a refresh. Use this launcher for the macOS dependency setup.
+
+### 5. Prepare the game and start a task
+
+1. Open the native game client and enter the game.
+2. Set a 16:9 game resolution of at least 1280 × 720.
+3. Match the tool's **Game Hotkey** settings to your in-game bindings. For example, the configured defaults use `Q` for Echo, `E` for Resonance Skill, and `R` for Liberation.
+4. Equip a main Echo on every team member before using Auto Combat, and disable in-game Auto Sprint.
+5. Review the selected task's settings, start it, and return focus to the game.
+
+Keep the game visible and in the foreground while automation runs. Switching to another app stops input and releases held keys and buttons to the game process. Return to the game before restarting the interrupted task.
+
+## Launch modes
+
+Run these commands from the repository folder:
+
+| Mode | Command | Behavior |
+| --- | --- | --- |
+| Qt application | `./run_macos.sh` | Default desktop interface |
+| Web UI in an embedded window | `./run_macos.sh --web` | Starts a local web server and displays the interface through pywebview |
+| Qt debug mode | `./run_macos.sh --debug` | Starts the debug entry point |
+
+The first `--web` launch installs the web dependencies. Switching modes can refresh the dependency stamp.
+
+The web server binds to `127.0.0.1` on an automatically selected port. The web runtime also supports browser and server launch modes, but `--web` selects the embedded window. There is no dedicated browser-mode flag in `run_macos.sh`; see [main_web.py](main_web.py) and the [web server implementation](ok-script/ok/ui/web/server.py) for development configuration.
+
+Opening the tool twice leaves the existing instance running. Close it before starting another instance.
+
+## macOS implementation
+
+- **Capture:** CoreGraphics / Quartz window capture replaces the Windows capture backends.
+- **Input:** the default `PostMessage` option maps to Quartz events on macOS. The alternative `Pynput` option uses native game keycodes for the keyboard and Pynput for the mouse.
+- **Inference:** YOLOv8 attempts to use the ONNX Runtime CoreML execution provider when available, with CPU fallback. PP-OCRv6 OCR currently runs on CPU.
+- **Interface:** macOS typography, traffic-light window controls, global menu integration, system accent colors, light/dark themes, and Dock reactivation.
+
+Desktop shortcuts include **Cmd + ,** for Preferences, **Cmd + Q** to quit, **Cmd + W** to close the window, and **Cmd + 1–5** for tab navigation. Shortcut availability depends on the active interface.
+
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| `git` or `python3.12` is missing | Complete the prerequisite installation, reopen the terminal, and repeat the version checks. |
+| `Python 3.12 is required` | Ensure `python3.12` is on your PATH. The launcher falls back to `python3` only if `python3.12` is unavailable, and still requires version 3.12. |
+| `Recreate .venv with Python 3.12` | Close the tool, rename `.venv` to an unused backup name, and run the launcher again with Python 3.12 available. Keep `configs/` in place. |
+| Dependency download or installation fails | Read the first error in the terminal, check your network connection and Python architecture, then rerun the same launch command. Failed installs do not receive a completion stamp. |
+| Game is not detected | Start the native game client and check its app name and location against the discovery paths above. |
+| Capture is blank or unavailable | Check Screen Recording permission for the actual launch host, follow restart prompts, and keep the game visible. |
+| The game is detected but receives no input | Check Accessibility permission, bring the game to the foreground, and verify Game Hotkey settings. |
+| Automation pauses after moving or minimizing the game | Restore it to a visible display, bring it to the foreground, and restart the interrupted task. |
+| A second launch appears to do nothing | Check for an existing instance and close it before relaunching. |
+| Combat repeatedly locks onto enemies without attacking | Check that every character has a main Echo equipped, confirm keybindings, and check game focus. |
+
+### Logs and bug reports
+
+Logs are configured relative to the repository folder:
+
+- `logs/ok-ww.log` — application log.
+- `logs/ok-ww_error.log` — application errors.
+- `logs/launcher.log` and `logs/launcher_error.log` — launcher logs when that launcher path is used.
+
+Early shell or dependency-installation errors may appear only in the terminal. Include that output when reporting startup failures.
+
+[Open an issue in this fork](https://github.com/joanphoenix/ok-wuthering-waves-macos-port/issues) with your macOS version, Mac chip, Python version and architecture, repository commit, launch mode, game resolution, steps to reproduce, and relevant logs. Remove personal information from logs and screenshots before sharing them.
+
+## Updating and development
+
+Before updating, stop automation and close the tool. Review local changes with `git status`, then update a clean checkout:
+
+```bash
+git pull --ff-only
+./run_macos.sh
+```
+
+If Git reports local changes or diverged history, resolve those before updating. Keep `configs/` when rebuilding the Python environment.
+
+- [Upstream changelog](CHANGELOG.md)
+- [Contributor guide](docs/development/contributing.md)
+- [Multi-account configuration](docs/multi-account-config.md)
+- [Vendored ok-script](ok-script)
+
+Some inherited documentation describes Windows behavior, dependencies, and background automation. Use this README and `run_macos.sh` for macOS setup and foreground-input requirements.
+
+## License and credits
+
+This repository includes the **GNU Affero General Public License, version 3**; see [LICENSE.txt](LICENSE.txt) for its terms. Vendored components retain their own license notices.
+
+Thanks to [ok-oldking/ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves) and [ok-script](https://github.com/ok-oldking/ok-script) for the upstream projects. Game assets, names, and trademarks belong to Kuro Games.
