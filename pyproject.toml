@@ -29,3 +29,9 @@ docs = [
 web-test = [
     "ok-script[web]==3.0.6",
 ]
+
+[tool.pytest.ini_options]
+# Upstream names its unittest modules Test*.py (TestAbyssRestart.py, TestCloudCombatTarget.py, ...),
+# which pytest skips by default. Without this only the few test_*.py files run.
+python_files = ["test_*.py", "Test*.py"]
+testpaths = ["tests"]
