@@ -19,6 +19,7 @@ class TestAbyssRestart(unittest.TestCase):
         task.find_abyss_start_marker = Mock(return_value=object())
         task.wait_ocr = Mock(return_value=[object()])
         task.wait_until = Mock(return_value=True)
+        task.wait_for_abyss_start = Mock(return_value=True)
         task.walk_to_box = Mock(return_value=True)
         task.find_f_with_text = Mock()
         task.box_of_screen = Mock()
@@ -26,6 +27,7 @@ class TestAbyssRestart(unittest.TestCase):
         task.send_key = Mock()
         task.click = Mock()
         task.next_frame = Mock()
+        task.sleep = Mock()
         return task
 
     def test_idle_arena_starts_without_opening_menu(self):
@@ -54,10 +56,45 @@ class TestAbyssRestart(unittest.TestCase):
             with self.subTest(state=state):
                 task = self.make_task()
                 task.find_abyss_start_marker.return_value = None
+                task.wait_until.side_effect = [None, True]  # marker never shows, then post-click wait
                 task.restart_combat_in_abyss()
                 self.assertEqual(task.send_key.call_args_list[0].args, ('esc',))
                 self.assertEqual(task.send_key.call_args_list[-1].args, ('f',))
                 task.click.assert_called_once_with(task.wait_ocr.return_value[0], after_sleep=1)
+
+    def test_overshot_pedestal_steps_back_until_prompt_shows_before_pressing_f(self):
+        task = self.make_task()
+        prompt = object()
+        task.find_f_with_text = Mock(side_effect=[None, None, prompt])
+        task.restart_combat_in_abyss()
+        keys = [call.args[0] for call in task.send_key.call_args_list]
+        self.assertEqual(keys, ['s', 's', 'f'])
+        self.assertEqual(task.send_key.call_args_list[0].kwargs, {'down_time': 0.12})
+
+    def test_prompt_never_found_aborts_without_pressing_f(self):
+        task = self.make_task()
+        task.find_f_with_text = Mock(return_value=None)
+        with self.assertRaisesRegex(RuntimeError, 'stop at'):
+            task.restart_combat_in_abyss()
+        self.assertNotIn('f', [call.args[0] for call in task.send_key.call_args_list])
+        self.assertFalse(task._in_combat)
+        self.assertFalse(task.skip_combat_check)
+
+    def test_start_prompt_checks_challenge_text(self):
+        task = self.make_task()
+        task.find_abyss_start_prompt()
+        patterns = task.find_f_with_text.call_args.kwargs['target_text']
+        self.assertTrue(any(pattern.fullmatch('Start Challenge') for pattern in patterns))
+        self.assertFalse(any(pattern.fullmatch('Talk') for pattern in patterns))
+
+    def test_pressing_f_without_timer_does_not_force_combat(self):
+        task = self.make_task()
+        task.wait_for_abyss_start.return_value = None
+        with self.assertRaisesRegex(RuntimeError, 'challenge timer did not appear'):
+            task.restart_combat_in_abyss()
+        task.send_key.assert_called_once_with('f')
+        self.assertFalse(task._in_combat)
+        self.assertFalse(task.skip_combat_check)
 
     def test_failed_navigation_does_not_force_combat(self):
         task = self.make_task()
@@ -75,8 +112,25 @@ class TestAbyssRestart(unittest.TestCase):
         pattern = task.ocr.call_args.kwargs['match']
         self.assertIsNone(pattern.search(
             '【返回】将清空当前进度并结束挑战，【重新挑战】将重开当前队伍的挑战'))
-        for label in ('重新挑战', '重新挑戰', 'Rechallenge'):
+        for label in ('重新挑战', '重新挑戰', 'Rechallenge', 'Restart', '重新开始', '重新開始'):
             self.assertIsNotNone(pattern.search(label))
+
+    def test_tower_exit_dialog_matches_restart_but_never_leave(self):
+        task = self.make_task()
+        task.restart_combat_in_abyss()
+        pattern = task.ocr.call_args.kwargs['match']
+        for text in ('Leave', '返回', 'Exit confirmation',
+                     'Leave to clear your current progress and end the challenge. Restart to try this level again.'):
+            self.assertIsNone(pattern.search(text), text)
+
+    def test_flickering_start_marker_does_not_open_the_pause_menu(self):
+        # The glowing marker can be missed on one frame; Esc would open a menu that blocks walking.
+        task = self.make_task()
+        task.find_abyss_start_marker.return_value = None
+        task.wait_until.return_value = object()  # marker reappears within the settle window
+        task.restart_combat_in_abyss()
+        task.send_key.assert_called_once_with('f')
+        task.click.assert_not_called()
 
     def test_result_confirmation_is_accepted_before_navigation(self):
         task = self.make_task()
@@ -198,6 +252,7 @@ class TestAbyssRestart(unittest.TestCase):
     def test_selected_tower_floor_starts_without_escaping_to_another_page(self):
         task = self.make_task()
         task.find_abyss_start_marker.return_value = None
+        task.wait_until.side_effect = [None, True]  # marker never shows, then the post-click wait
         start = object()
         task.ocr.side_effect = lambda *args, **kwargs: [start] if kwargs['match'].search('挑战开始') else []
         task.restart_combat_in_abyss()
@@ -207,6 +262,7 @@ class TestAbyssRestart(unittest.TestCase):
     def test_tower_team_confirmation_uses_open_challenge_label(self):
         task = self.make_task()
         task.find_abyss_start_marker.return_value = None
+        task.wait_until.side_effect = [None, True]  # marker never shows, then the post-click wait
         start = object()
         task.ocr.side_effect = lambda *args, **kwargs: [start] if kwargs['match'].search('开启挑战') else []
         task.restart_combat_in_abyss()

@@ -94,10 +94,33 @@ def test_spinbox_installer_is_idempotent_and_windows_is_untouched():
 
 def test_activation_uses_native_api_without_system_events():
     appkit = MagicMock()
-    with patch.object(windows, 'get_window_pid', return_value=42), patch.object(windows, '_appkit', return_value=appkit), patch.object(windows.subprocess, 'run') as scripts:
+    with patch.object(windows, 'get_window_pid', return_value=42), patch.object(windows, '_appkit', return_value=appkit), \
+            patch.object(windows, 'is_foreground_window', return_value=True), patch.object(windows.subprocess, 'run') as scripts:
         assert windows.bring_window_to_front(7)
         appkit.NSRunningApplication.runningApplicationWithProcessIdentifier_.assert_called_once_with(42)
         scripts.assert_not_called()
+
+
+def test_activation_falls_back_to_system_events_when_native_activation_is_ignored():
+    # macOS 14+ ignores NSApplicationActivateIgnoringOtherApps from a background process.
+    appkit = MagicMock()
+    with patch.object(windows, 'get_window_pid', return_value=42), patch.object(windows, '_appkit', return_value=appkit), \
+            patch.object(windows, '_wait_foreground', side_effect=[False, True]), \
+            patch.object(windows.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stderr='')) as scripts:
+        assert windows.bring_window_to_front(7)
+        command = scripts.call_args.args[0]
+        assert command[0] == 'osascript'
+        assert 'set frontmost of (first process whose unix id is 42) to true' in command[2]
+
+
+def test_activation_reports_failure_when_system_events_is_refused_or_game_stays_behind():
+    appkit = MagicMock()
+    with patch.object(windows, 'get_window_pid', return_value=42), patch.object(windows, '_appkit', return_value=appkit), \
+            patch.object(windows, '_wait_foreground', return_value=False):
+        with patch.object(windows.subprocess, 'run', return_value=SimpleNamespace(returncode=1, stderr='not allowed')):
+            assert not windows.bring_window_to_front(7)
+        with patch.object(windows.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stderr='')):
+            assert not windows.bring_window_to_front(7)
 
 
 def test_capture_rejects_transient_geometry_and_ignores_old_discovery_crop():

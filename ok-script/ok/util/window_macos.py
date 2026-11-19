@@ -301,10 +301,43 @@ def bring_window_to_front(hwnd: int) -> bool:
         AppKit = _appkit()
         app = AppKit.NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
         if app is not None:
-            return bool(app.activateWithOptions_(AppKit.NSApplicationActivateIgnoringOtherApps))
+            app.activateWithOptions_(AppKit.NSApplicationActivateIgnoringOtherApps)
+            if _wait_foreground(hwnd, 0.5):
+                return True
+        # macOS 14+ ignores NSApplicationActivateIgnoringOtherApps from a background
+        # process, so the game stays behind whatever app currently has focus. System
+        # Events can still raise it (it needs the Automation permission once).
+        if _activate_with_system_events(pid):
+            return _wait_foreground(hwnd, 2.0)
     except Exception as e:
         logger.warning(f"bring_window_to_front failed for {hwnd}: {e}")
     return False
+
+
+def _wait_foreground(hwnd: int, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while True:
+        if is_foreground_window(hwnd):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+
+
+def _activate_with_system_events(pid: int) -> bool:
+    try:
+        result = subprocess.run(
+            ["osascript", "-e",
+             f'tell application "System Events" to set frontmost of '
+             f'(first process whose unix id is {int(pid)}) to true'],
+            capture_output=True, text=True, timeout=5)
+    except Exception as e:
+        logger.warning(f"System Events activation failed for pid {pid}: {e}")
+        return False
+    if result.returncode != 0:
+        logger.warning(f"System Events activation failed for pid {pid}: {result.stderr.strip()}")
+        return False
+    return True
 
 
 def show_title_bar(hwnd: int) -> bool:

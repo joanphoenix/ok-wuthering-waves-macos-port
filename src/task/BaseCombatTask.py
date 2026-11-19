@@ -17,6 +17,9 @@ from src.combat.CombatCheck import CombatCheck
 from src.task.BaseWWTask import isolate_white_text_to_black, binarize_for_matching
 
 logger = Logger.get_logger(__name__)
+
+TOWER_START_MARKER_THRESHOLD = 0.45
+ABYSS_START_TEXT = re.compile(r'^\s*(?:挑战开始|挑戰開始|开始挑战|開始挑戰|开启挑战|開啟挑戰|Start\s*Challenge)\s*$', re.I)
 cd_regex = re.compile(r'\d{1,2}\.\d')
 
 
@@ -382,8 +385,11 @@ class BaseCombatTask(CombatCheck):
         # Exclude the identical quest icon at the left edge of the HUD.
         if box is None:
             box = self.box_of_screen(0.15, 0.15, 0.85, 0.85)
+        # The tower marker template was cut from a 3840x2160 frame, so on other window shapes
+        # (a 3024x1898 MacBook window scores 0.52) it falls under 0.75. Unrelated 4K frames
+        # peak at 0.39, so 0.45 keeps a margin on both sides.
         return (self.find_one('abyss_start_marker', box=box, threshold=0.75)
-                or self.find_one('abyss_tower_start_marker', box=box, threshold=0.75,
+                or self.find_one('abyss_tower_start_marker', box=box, threshold=TOWER_START_MARKER_THRESHOLD,
                                  frame_processor=binarize_for_matching))
 
     def check_abyss_start(self, has_f):
@@ -435,17 +441,42 @@ class BaseCombatTask(CombatCheck):
         self.next_frame()
         return True
 
+    def find_abyss_start_prompt(self):
+        return self.find_f_with_text(target_text=[ABYSS_START_TEXT])
+
+    def wait_for_abyss_start(self):
+        return self.wait_until(lambda: (self.get_abyss_remaining_time(force=True) or 0) > 0,
+                               time_out=8, settle_time=0)
+
+    def settle_at_abyss_start_prompt(self, attempts=6):
+        """Make sure the Start Challenge prompt is on screen right before F is pressed.
+
+        The walk checks the prompt about twice a second while the character runs several metres
+        per second, then coasts while the team loads, so it can end up past the pedestal with the
+        prompt gone and F doing nothing. Step back in short pulses until the prompt shows again.
+        """
+        for attempt in range(attempts):
+            self.sleep(0.3)  # let the character stop moving
+            self.next_frame()
+            if self.find_abyss_start_prompt():
+                return True
+            if attempt + 1 < attempts:
+                self.send_key('s', down_time=0.12)
+        return False
+
     def restart_combat_in_abyss(self):
         """Restart the current Abyss challenge and return with combat active.
 
         Call from an Abyss arena, its pause/result screen, or its selected floor.
-        Combat detection is forced true for five seconds after pressing F;
+        Combat detection is forced true for five seconds after the timer appears;
         subsequent combat loops use the usual checks again.
         """
-        rechallenge_text = re.compile(r'^\s*(?:重新挑战|重新挑戰|再次挑战|再次挑戰|Rechallenge)\s*$',
-                                      re.IGNORECASE)
+        # Abyss pause menus say Rechallenge; Hazard Tower's Exit confirmation offers Leave/Restart.
+        # Never match Leave: it ends the challenge.
+        rechallenge_text = re.compile(
+            r'^\s*(?:重新挑战|重新挑戰|再次挑战|再次挑戰|Rechallenge|重新开始|重新開始|Restart)\s*$',
+            re.IGNORECASE)
         confirm_text = re.compile(r'^\s*(?:确认|確認|确定|確定|Confirm)\s*$', re.IGNORECASE)
-        start_text = re.compile(r'^\s*(?:挑战开始|挑戰開始|开始挑战|開始挑戰|开启挑战|開啟挑戰|Start\s*Challenge)\s*$', re.I)
 
         def dismiss_arena_details():
             if self.dismiss_abyss_character_info():
@@ -474,7 +505,7 @@ class BaseCombatTask(CombatCheck):
                 self.click(buttons[0], after_sleep=1)
             elif buttons := self.ocr(match=rechallenge_text):
                 self.click(buttons[0], after_sleep=1)
-            elif buttons := self.ocr(box=self.box_of_screen(0.55, 0.75, 0.98, 0.98), match=start_text):
+            elif buttons := self.ocr(box=self.box_of_screen(0.55, 0.75, 0.98, 0.98), match=ABYSS_START_TEXT):
                 # Tower success returns to the still-selected floor/team.
                 self.click(buttons[0], after_sleep=1)
 
@@ -494,8 +525,11 @@ class BaseCombatTask(CombatCheck):
                             match=re.compile(r'是否覆盖|是否覆蓋|overwrite', re.I)):
                     self.send_key('esc', after_sleep=0.5)
             rechallenge = self.ocr(match=rechallenge_text)
-            if not rechallenge and not self.find_abyss_start_marker():
-                if start_buttons := self.ocr(box=self.box_of_screen(0.55, 0.75, 0.98, 0.98), match=start_text):
+            # The start marker glows and can be missed on a single frame; give it a moment
+            # before concluding combat is active, since Esc here opens a menu that blocks walking.
+            if (not rechallenge and not self.find_abyss_start_marker()
+                    and not self.wait_until(self.find_abyss_start_marker, time_out=3)):
+                if start_buttons := self.ocr(box=self.box_of_screen(0.55, 0.75, 0.98, 0.98), match=ABYSS_START_TEXT):
                     self.click(start_buttons[0], after_sleep=1)
                     self.wait_until(self.find_abyss_start_marker, time_out=30,
                                     raise_if_not_found=True, post_action=handle_restart_dialog)
@@ -508,11 +542,15 @@ class BaseCombatTask(CombatCheck):
                 self.wait_until(self.find_abyss_start_marker, time_out=30,
                                 raise_if_not_found=True, post_action=handle_restart_dialog)
             if not self.walk_to_box(find_start_for_restart,
-                                    end_condition=self.find_f_with_text, time_out=30):
+                                    end_condition=self.find_abyss_start_prompt, time_out=30):
                 raise RuntimeError(self.tr('Could not reach the Abyss challenge start'))
             if not self.load_chars():
                 raise RuntimeError(self.tr('Could not load the Abyss team'))
+            if not self.settle_at_abyss_start_prompt():
+                raise RuntimeError(self.tr('Could not stop at the Abyss challenge start'))
             self.send_key('f')
+            if not self.wait_for_abyss_start():
+                raise RuntimeError(self.tr('Pressed F at the Abyss start but the challenge timer did not appear'))
             return self.force_abyss_combat()
         finally:
             self.skip_combat_check = previous_skip
