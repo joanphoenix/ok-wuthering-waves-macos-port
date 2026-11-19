@@ -191,3 +191,68 @@ def test_web_launch_mode_still_resolves():
     from ok.core.ui_config import resolve_ui_config
     resolved = resolve_ui_config({'gui': {'type': 'web', 'launch_mode': 'pywebview'}})
     assert (resolved['type'], resolved['launch_mode']) == ('web', 'pywebview')
+
+
+def test_denied_input_permission_reports_instead_of_silently_posting():
+    quartz = MagicMock()
+    quartz.CGPreflightPostEventAccess.return_value = False
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=lambda: True,
+                             get_abs_cords=lambda x, y: (x, y))
+    with patch.object(inputs, 'Quartz', quartz), \
+         patch('ok.core.notifications.alert_error') as alert:
+        interaction = inputs.MacOSQuartzInteraction(None, window)
+        for action in [lambda: interaction.send_key_down('e'),
+                       lambda: interaction.mouse_down(10, 10)]:
+            with pytest.raises(PermissionError, match='Accessibility'):
+                action()
+        quartz.CGEventPost.assert_not_called()
+        alert.assert_called_once()
+        assert 'Claude Code' in alert.call_args.args[0]
+
+        # Granting permission should immediately allow a retry in this process.
+        quartz.CGPreflightPostEventAccess.return_value = True
+        interaction.send_key_down('e')
+        quartz.CGEventPost.assert_called_once()
+        # Releases remain possible if permission changes while input is held.
+        quartz.CGPreflightPostEventAccess.return_value = False
+        interaction.send_key_up('e')
+        assert not interaction._held_keys
+        assert quartz.CGEventPost.call_count == 2
+
+
+def test_coordinate_free_attack_uses_cursor_after_move_back():
+    quartz = MagicMock()
+    window = SimpleNamespace(is_foreground=lambda: True,
+                             get_abs_cords=lambda x, y: (x, y))
+    with patch.object(inputs, 'Quartz', quartz), patch.object(inputs.time, 'sleep'), \
+            patch.object(inputs, 'get_cursor_pos', return_value=(80, 90)), \
+            patch.object(inputs, 'set_cursor_pos') as restore:
+        interaction = inputs.MacOSQuartzInteraction(None, window)
+        interaction.click(400, 500, move_back=True)
+        restore.assert_called_once_with((80, 90))
+        quartz.CGEventCreateMouseEvent.reset_mock()
+        interaction.click()
+        assert [call.args[2] for call in quartz.CGEventCreateMouseEvent.call_args_list] == [
+            (80.0, 90.0), (80.0, 90.0)
+        ]
+
+
+def test_macos_hides_cloud_device_and_migrates_saved_selection():
+    from ok.device.DeviceManager import DeviceManager
+
+    manager = DeviceManager.__new__(DeviceManager)
+    manager.config = {'preferred': 'browser'}
+    native = {'imei': 'pc', 'device': 'windows', 'connected': True}
+    manager.device_dict = {
+        'browser': {'imei': 'browser', 'device': 'browser'},
+        'adb': {'imei': 'adb', 'device': 'adb', 'connected': True},
+        'pc': native,
+    }
+    manager.start = MagicMock()
+    with patch('ok.device.DeviceManager.sys.platform', 'darwin'), \
+            patch('ok.core.notifications.alert_info') as alert:
+        assert manager.get_preferred_device() is None
+        manager.update_browser_device()
+        assert 'browser' not in manager.device_dict
+        assert manager.get_preferred_device() is native
+        alert.assert_called_once()

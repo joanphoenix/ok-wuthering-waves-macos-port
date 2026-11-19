@@ -65,10 +65,12 @@ class MacOSQuartzInteraction(BaseInteraction):
     def __init__(self, capture: BaseCaptureMethod, hwnd_window):
         super().__init__(capture)
         self.hwnd_window = hwnd_window
-        self.mouse_pos = (0, 0)
         self.check_clickable = True
         self._held_keys = set()
         self._held_buttons = {}
+        self._input_permission_error_shown = False
+        if Quartz is not None:
+            logger.info(f'macOS input posting permission: {Quartz.CGPreflightPostEventAccess()}')
 
     @property
     def hwnd(self):
@@ -88,6 +90,8 @@ class MacOSQuartzInteraction(BaseInteraction):
         # Unreal's game input needs the HID event stream. Recheck focus at
         # dispatch instead of relying only on the public method's entry check.
         if self.clickable():
+            if not release:
+                self._require_input_permission()
             Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
         elif release:
             # Release held game inputs without sending new actions to another app.
@@ -96,6 +100,28 @@ class MacOSQuartzInteraction(BaseInteraction):
                 Quartz.CGEventPostToPid(pid, event)
         else:
             self._require_foreground()
+
+    def _require_input_permission(self):
+        # Screen capture and input posting are separate TCC permissions. Check
+        # in this process: launching from another terminal/IDE can change which
+        # host macOS requires the user to authorize. CGEventPost fails silently.
+        if Quartz is None:
+            raise RuntimeError('macOS Quartz input is unavailable')
+        if not Quartz.CGPreflightPostEventAccess():
+            message = (
+                'macOS is blocking keyboard and mouse input. Open System Settings > '
+                'Privacy & Security > Accessibility and enable the app used to launch '
+                'this tool (for example Claude Code, Terminal, or your editor). '
+                'Then fully quit and reopen that app and restart ok-ww. '
+                'Screen Recording permission alone does not allow input.'
+            )
+            if not self._input_permission_error_shown:
+                from ok.core.notifications import alert_error
+                self._input_permission_error_shown = True
+                logger.error(message)
+                alert_error(message)
+            raise PermissionError(message)
+        self._input_permission_error_shown = False
 
     def on_destroy(self):
         for key in tuple(self._held_keys):
@@ -128,10 +154,7 @@ class MacOSQuartzInteraction(BaseInteraction):
                 abs_x, abs_y = self.hwnd_window.get_abs_cords(x, y)
             else:
                 abs_x, abs_y = int(x), int(y)
-            self.mouse_pos = (abs_x, abs_y)
             return abs_x, abs_y
-        if self.mouse_pos != (0, 0):
-            return self.mouse_pos
         return get_cursor_pos()
 
     def _post_mouse_event(self, event_type, abs_x, abs_y, button=0, dx=0, dy=0):
@@ -151,7 +174,9 @@ class MacOSQuartzInteraction(BaseInteraction):
                 self._held_buttons.pop(button_name, None)
             elif event_type in {Quartz.kCGEventLeftMouseDown, Quartz.kCGEventRightMouseDown, Quartz.kCGEventOtherMouseDown}:
                 self._held_buttons[button_name] = (abs_x, abs_y)
-        except TaskDisabledException:
+            elif event_type == Quartz.kCGEventLeftMouseDragged and button_name in self._held_buttons:
+                self._held_buttons[button_name] = (abs_x, abs_y)
+        except (TaskDisabledException, PermissionError):
             raise
         except Exception as e:
             logger.error(f"_post_mouse_event error: {e}")
@@ -159,8 +184,10 @@ class MacOSQuartzInteraction(BaseInteraction):
     def send_key(self, key, down_time=0.01):
         super().send_key(key, down_time)
         self.send_key_down(key)
-        time.sleep(down_time)
-        self.send_key_up(key)
+        try:
+            time.sleep(down_time)
+        finally:
+            self.send_key_up(key)
 
     def send_key_down(self, key, activate=True):
         # Activation is explicit at task startup; never steal focus back from
@@ -211,7 +238,6 @@ class MacOSQuartzInteraction(BaseInteraction):
                 dx=int(dx),
                 dy=int(dy),
             )
-            self.mouse_pos = (new_x, new_y)
 
     def scroll(self, x, y, scroll_amount):
         self._require_foreground()
@@ -228,7 +254,7 @@ class MacOSQuartzInteraction(BaseInteraction):
                     )
                     self._post_to_game(ev)
                     time.sleep(0.002)
-            except TaskDisabledException:
+            except (TaskDisabledException, PermissionError):
                 raise
             except Exception as e:
                 logger.error(f"scroll error: {e}")
@@ -262,9 +288,6 @@ class MacOSQuartzInteraction(BaseInteraction):
                         dx=int(step_dx),
                         dy=int(step_dy),
                     )
-                    # mouse_up() releases at mouse_pos. Leaving it at the start
-                    # point would snap the drag back before the button lifts.
-                    self.mouse_pos = (cx, cy)
                     time.sleep(0.01)
 
             if settle_time > 0:
@@ -295,8 +318,10 @@ class MacOSQuartzInteraction(BaseInteraction):
 
         down_type, up_type, btn = self._button_types(key)
         self._post_mouse_event(down_type, abs_x, abs_y, btn)
-        time.sleep(down_time)
-        self._post_mouse_event(up_type, abs_x, abs_y, btn)
+        try:
+            time.sleep(down_time)
+        finally:
+            self._post_mouse_event(up_type, abs_x, abs_y, btn)
 
         if prev_pos is not None and self.clickable():
             set_cursor_pos(prev_pos)
@@ -316,6 +341,9 @@ class MacOSQuartzInteraction(BaseInteraction):
         self._post_mouse_event(down_type, abs_x, abs_y, btn)
 
     def mouse_up(self, x=-1, y=-1, key="left"):
-        abs_x, abs_y = self._resolve_abs_coords(x, y)
+        if x == -1 and y == -1 and key in self._held_buttons:
+            abs_x, abs_y = self._held_buttons[key]
+        else:
+            abs_x, abs_y = self._resolve_abs_coords(x, y)
         _, up_type, btn = self._button_types(key)
         self._post_mouse_event(up_type, abs_x, abs_y, btn)

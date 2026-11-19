@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -287,6 +288,11 @@ class DeviceManager:
             return imei
 
     def update_browser_device(self):
+        if sys.platform != "win32":
+            self.device_dict.pop("browser", None)
+            if self.config.get("preferred") == "browser":
+                self.set_preferred_device()
+            return
         if self.browser_config and windows_graphics_available():
             width, height = self.browser_config.get('resolution', (1280, 720))
             nick = self.browser_config.get('nick', 'Browser')
@@ -440,6 +446,15 @@ class DeviceManager:
             imei = self.get_devices()[index]['imei']
         elif imei is None:
             imei = self.config.get("preferred")
+        if sys.platform != "win32" and imei == 'browser':
+            native = [device for device in self.device_dict.values() if device.get('device') == 'windows']
+            if native:
+                imei = max(native, key=lambda device: bool(device.get('connected')))['imei']
+                if self.config.get('preferred') == 'browser':
+                    from ok.core.notifications import alert_info
+                    alert_info('Cloud gameplay requires Windows capture. Switched to the native game client.')
+            else:
+                return
         preferred = self.device_dict.get(imei)
         if preferred is None:
             if len(self.device_dict) > 0:
@@ -531,8 +546,9 @@ class DeviceManager:
 
     def get_preferred_device(self):
         imei = self.config.get("preferred")
-        preferred = self.device_dict.get(imei)
-        return preferred
+        if sys.platform != "win32" and imei == 'browser':
+            return None
+        return self.device_dict.get(imei)
 
     def get_preferred_capture(self):
         return self.config.get("capture")

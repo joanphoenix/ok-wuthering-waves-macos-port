@@ -9,10 +9,12 @@ This fork tracks upstream [v3.8.4](https://github.com/ok-oldking/ok-wuthering-wa
 - **Combat and exploration:** automatic combat, item pickup, dialogue skipping, login, and fast travel tasks.
 - **Daily activities and farming:** daily tasks, Echo farming, Nightmare Nests, Tacet Fields, Forgery Challenges, and Simulation Challenges.
 - **Echo management:** merge, enhance, and change Echoes.
-- **Additional tasks:** multi-account configuration and daily tasks, Garden, and Tacet Elimination.
+- **Additional tasks:** multi-account configuration, multi-account daily tasks, and Garden.
 - **Character-specific combat logic:** includes Suoming (锁瞑) heavy attacks and burst sequences, and Douling (卜灵) Trigram detection.
 
 These are tasks registered by the current [configuration](config.py). Availability in the UI does not establish that every task or character rotation has been verified on every macOS version.
+
+The v3.8.4 upstream update removed Tacet Elimination and imported character routines. Existing custom-team files in `configs/custom_teams/` are kept on disk and can be backed up for use with an older compatible build.
 
 ## Requirements and compatibility
 
@@ -103,7 +105,7 @@ Run these commands from the repository folder:
 | Web UI in an embedded window | `./run_macos.sh --web` | Starts a local web server and displays the interface through pywebview |
 | Qt debug mode | `./run_macos.sh --debug` | Starts the debug entry point |
 
-The first `--web` launch installs the web dependencies. Switching modes can refresh the dependency stamp.
+Cloud gameplay through a browser requires Windows capture. On macOS, use the native game client. The first `--web` launch installs the web interface dependencies. Switching modes can refresh the dependency stamp.
 
 The web server binds to `127.0.0.1` on an automatically selected port. The web runtime also supports browser and server launch modes, but `--web` selects the embedded window. There is no dedicated browser-mode flag in `run_macos.sh`; see [main_web.py](main_web.py) and the [web server implementation](ok-script/ok/ui/web/server.py) for development configuration.
 
