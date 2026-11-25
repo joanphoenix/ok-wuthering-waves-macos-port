@@ -15,6 +15,6 @@ else:
         VERSION_NUM = obtainer.version_add_one(latest_version, add_patch=True)
         print(f'latest_version is {latest_version} new version is {VERSION_NUM}')
     except Exception:
-        VERSION_NUM = "3.0.6+macos.1"
+        VERSION_NUM = "3.0.13+macos.1"
 
 setuptools.setup(version=VERSION_NUM)

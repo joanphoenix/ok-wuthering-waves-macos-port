@@ -306,3 +306,61 @@ def test_unsupported_cloud_requests_preserve_native_device_settings():
                 request_capture({'browser': {}})
     manager.clear_devices.assert_not_called()
     assert manager.get_preferred_device() is manager.device_dict['pc']
+
+
+def test_mcp_server_rejects_unauthenticated_and_foreign_requests():
+    # run_task and run_code execute Python, so only the local token holder may call them.
+    from starlette.testclient import TestClient
+    from ok.core.mcp_server import create_mcp_app
+
+    app = create_mcp_app(MagicMock(), 'secret', 8765)
+    authorized = {'Authorization': 'Bearer secret'}
+    with TestClient(app, base_url='http://127.0.0.1:8765') as client:
+        assert client.post('/mcp', json={}).status_code == 401
+        assert client.post('/mcp', json={}, headers={'Authorization': 'Bearer wrong'}).status_code == 401
+        foreign_origin = {**authorized, 'Origin': 'https://untrusted.example'}
+        assert client.post('/mcp', json={}, headers=foreign_origin).status_code == 403
+        foreign_host = {**authorized, 'Host': 'untrusted.example'}
+        assert client.post('/mcp', json={}, headers=foreign_host).status_code == 421
+
+
+def test_pynput_move_with_a_held_button_drags():
+    # pynput's macOS controller emits drag events only for a button it pressed
+    # itself, so moves during a hold must reuse the pressing controller.
+    from pynput import mouse
+    from ok.device.interaction_methods.pynput import PynputInteraction
+
+    capture = MagicMock()
+    capture.get_abs_cords.side_effect = lambda x, y: (x, y)
+    window = SimpleNamespace(is_foreground=lambda: True)
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'win32'), \
+            patch('ok.device.interaction_methods.pynput.is_admin', return_value=True), \
+            patch.object(mouse, 'Controller', side_effect=lambda: MagicMock()):
+        interaction = PynputInteraction(capture, window)
+        interaction.mouse_down(10, 20)
+        pressed = interaction._held_buttons[mouse.Button.left]
+        interaction.move(30, 40)
+        assert pressed.position == (30, 40)
+        interaction.mouse_up()
+        pressed.release.assert_called_once_with(mouse.Button.left)
+        assert not interaction._held_buttons
+
+
+def test_daily_task_explains_why_cultivation_target_is_unavailable():
+    # CultivationTask is only loaded with a Simplified Chinese app language.
+    from src.task.DailyTask import CULTIVATION_TARGET, DailyTask
+
+    task = DailyTask.__new__(DailyTask)
+    task.config = {'Which to Farm': CULTIVATION_TARGET, 'Farm Nightmare Nest for Daily Echo': False}
+    task.support_tasks = ['Tacet Suppression', 'Forgery Challenge', 'Simulation Challenge', CULTIVATION_TARGET]
+    for name in ('validate_additional_tasks', 'ensure_main', 'sleep', 'claim_daily', 'claim_mail',
+                 'claim_battle_pass', 'run_additional_tasks',
+                 'log_info', 'log_error', 'log_warning', 'log_debug'):
+        setattr(task, name, MagicMock())
+    task.tr = lambda text: text
+    task.open_daily = MagicMock(return_value=(0, False))
+    task.get_task_by_class = MagicMock(return_value=None)
+    with patch.object(DailyTask.__mro__[1], 'run'), \
+            patch.object(DailyTask, 'logged_in', False, create=True):
+        task.run()
+    assert 'Simplified Chinese' in task.log_error.call_args_list[0].args[0]

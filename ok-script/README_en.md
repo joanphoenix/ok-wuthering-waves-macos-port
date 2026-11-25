@@ -94,8 +94,6 @@ For a visual scripting experience built on ok-script, see [`ok-py`](https://gith
 - [Chaos Zero Nightmare](https://github.com/baoxin1100/ok-kes)
 - [Onmyoji](https://github.com/YunLiuZ/ok-Onmyoji)
 - [Ash Echoes](https://github.com/ok-oldking/ok-baijing) (unmaintained)
-- [Arknights: Endfield](https://github.com/AliceJump/ok-end-field)
-- [Neverness to Everness](https://github.com/BnanZ0/ok-nte)
 
 ## Community and releases
 

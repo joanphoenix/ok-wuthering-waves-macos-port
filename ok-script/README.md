@@ -93,8 +93,6 @@ python -m pip install --editable . --group default --group dev
 - [卡厄思梦境](https://github.com/baoxin1100/ok-kes)
 - [阴阳师](https://github.com/YunLiuZ/ok-Onmyoji)
 - [白荆回廊](https://github.com/ok-oldking/ok-baijing)（停止维护）
-- [明日方舟：终末地](https://github.com/AliceJump/ok-end-field)
-- [异环](https://github.com/BnanZ0/ok-nte)
 
 ## 社区与发布
 

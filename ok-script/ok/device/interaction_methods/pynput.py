@@ -139,7 +139,9 @@ class PynputInteraction(BaseInteraction):
             return
 
         abs_x, abs_y = self.capture.get_abs_cords(x, y)
-        controller = self._new_mouse_controller()
+        # pynput's macOS controller emits drag events only for a button it
+        # pressed itself, so moves during a hold must reuse that controller.
+        controller = next(iter(self._held_buttons.values()), None) or self._new_mouse_controller()
         controller.position = (abs_x, abs_y)
 
     def swipe(self, x1, y1, x2, y2, duration, settle_time=0):

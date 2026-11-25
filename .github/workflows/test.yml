@@ -52,7 +52,7 @@ jobs:
           pip install -r requirements.txt
           # The lockfile installs published ok-script. The port's integer editors
           # and macOS helpers live in the vendored tree, so tests must import that.
-          $env:OK_SCRIPT_BUILD_VERSION = "3.0.6+macos.1"
+          $env:OK_SCRIPT_BUILD_VERSION = "3.0.13+macos.1"
           pip install --no-deps -e ./ok-script
           pip install pytest
 

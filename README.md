@@ -2,7 +2,7 @@
 
 A macOS Apple Silicon port of [ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves), an image-recognition automation tool for *Wuthering Waves*, built with [ok-script](https://github.com/ok-oldking/ok-script).
 
-This fork tracks upstream [v3.8.4](https://github.com/ok-oldking/ok-wuthering-waves/blob/master/CHANGELOG.md) and includes a vendored, locally modified **ok-script 3.0.6**. macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
+This fork tracks upstream [v3.8.14](https://github.com/ok-oldking/ok-wuthering-waves/blob/master/CHANGELOG.md) and includes a vendored, locally modified **ok-script 3.0.13**. macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
 
 ## Features
 
@@ -10,6 +10,7 @@ This fork tracks upstream [v3.8.4](https://github.com/ok-oldking/ok-wuthering-wa
 - **Daily activities and farming:** daily tasks, Echo farming, Nightmare Nests, Tacet Fields, Forgery Challenges, and Simulation Challenges.
 - **Echo management:** merge, enhance, and change Echoes.
 - **Additional tasks:** multi-account configuration, multi-account daily tasks, and Garden.
+- **Cultivation and event tasks:** Cultivation Resource Farm (also selectable in the Daily Task), and the limited-time 3.8 GalGame and Rahai Blocks event tasks. All three are listed only when the app language is Simplified Chinese and need the game in Simplified Chinese; Cultivation Resource Farm and Rahai Blocks also require a 16:9 game window. They have not been verified in the game on macOS.
 - **Character-specific combat logic:** includes Suoming (锁瞑) heavy attacks and burst sequences, and Douling (卜灵) Trigram detection.
 
 These are tasks registered by the current [configuration](config.py). Availability in the UI does not establish that every task or character rotation has been verified on every macOS version.
