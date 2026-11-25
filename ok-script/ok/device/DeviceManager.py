@@ -451,6 +451,9 @@ class DeviceManager:
             if native:
                 imei = max(native, key=lambda device: bool(device.get('connected')))['imei']
                 if self.config.get('preferred') == 'browser':
+                    if self.config.get('capture') == 'browser':
+                        self.config['capture'] = self.available_capture_methods(
+                            self.device_dict[imei])[0]
                     from ok.core.notifications import alert_info
                     alert_info('Cloud gameplay requires Windows capture. Switched to the native game client.')
             else:
@@ -977,6 +980,8 @@ class DeviceManager:
                         raise Exception(f"Failed to resize ADB to {resolution}: {e}")
 
         elif 'browser' in config:
+            if sys.platform != 'win32':
+                raise ValueError('Cloud gameplay requires Windows capture.')
             browser_config = config['browser']
             self.clear_devices()
             if not getattr(self, 'browser_config', None):
@@ -1004,6 +1009,8 @@ class DeviceManager:
     def ensure_capture(self, config: dict):
         import time
         logger.info(f'ensure_capture {config}')
+        if sys.platform != 'win32' and 'browser' in config and not ('windows' in config or 'adb' in config):
+            raise ValueError('Cloud gameplay requires Windows capture.')
         self.clear_devices()
         if 'windows' in config:
             win_config = config['windows']

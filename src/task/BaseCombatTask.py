@@ -1,4 +1,5 @@
 import re
+import sys
 import time
 import unicodedata
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
@@ -6,7 +7,7 @@ from decimal import Decimal, ROUND_UP, ROUND_DOWN
 import cv2
 import numpy as np
 
-from ok import Logger, Config
+from ok import Box, Logger, Config
 from ok import color_range_to_bound
 from ok import safe_get
 from src import text_white_color
@@ -19,7 +20,14 @@ from src.task.BaseWWTask import isolate_white_text_to_black, binarize_for_matchi
 logger = Logger.get_logger(__name__)
 
 TOWER_START_MARKER_THRESHOLD = 0.45
-ABYSS_START_TEXT = re.compile(r'^\s*(?:挑战开始|挑戰開始|开始挑战|開始挑戰|开启挑战|開啟挑戰|Start\s*Challenge)\s*$', re.I)
+ABYSS_START_TEXT = re.compile(
+    r'^\s*(?:挑战开始|挑戰開始|开始挑战|開始挑戰|开启挑战|開啟挑戰|Start\s*Challenge'
+    r'|挑戦開始|挑戦を開始|チャレンジ開始|チャレンジを開始|도전\s*시작'
+    r'|(?:Iniciar|Comenzar)\s+(?:el\s+)?desaf[ií]o'
+    r'|(?:Lancer|Commencer|Démarrer)\s+(?:le\s+)?défi'
+    r'|Herausforderung\s+starten)\s*$',
+    re.IGNORECASE,
+)
 cd_regex = re.compile(r'\d{1,2}\.\d')
 
 
@@ -442,7 +450,47 @@ class BaseCombatTask(CombatCheck):
         return True
 
     def find_abyss_start_prompt(self):
-        return self.find_f_with_text(target_text=[ABYSS_START_TEXT])
+        return self.find_f_with_text(
+            target_text=[ABYSS_START_TEXT],
+            fallback_ocr=self.recognize_korean_abyss_prompt if sys.platform == 'darwin' else None,
+        )
+
+    def recognize_korean_abyss_prompt(self, box):
+        # The bundled PP-OCR character set has no Hangul.
+        try:
+            import Vision
+            from Foundation import NSData, NSDictionary
+
+            image = self.frame[box.y:box.y + box.height, box.x:box.x + box.width]
+            if not image.size:
+                return []
+            encoded, buffer = cv2.imencode('.png', image)
+            if not encoded:
+                return []
+            data = buffer.tobytes()
+            request = Vision.VNRecognizeTextRequest.alloc().init()
+            languages, _ = request.supportedRecognitionLanguagesAndReturnError_(None)
+            if not languages or 'ko-KR' not in languages:
+                return []
+            request.setRecognitionLanguages_(['ko-KR'])
+            handler = Vision.VNImageRequestHandler.alloc().initWithData_options_(
+                NSData.dataWithBytes_length_(data, len(data)), NSDictionary.dictionary())
+            succeeded, _ = handler.performRequests_error_([request], None)
+            if succeeded:
+                for observation in request.results() or ():
+                    candidates = observation.topCandidates_(1)
+                    if candidates and re.fullmatch(r'도전\s*시작', candidates[0].string().strip()):
+                        bounds = observation.boundingBox()
+                        return [Box(
+                            box.x + round(bounds.origin.x * image.shape[1]),
+                            box.y + round((1 - bounds.origin.y - bounds.size.height) * image.shape[0]),
+                            round(bounds.size.width * image.shape[1]),
+                            round(bounds.size.height * image.shape[0]),
+                            name=candidates[0].string(),
+                        )]
+        except Exception as error:
+            logger.debug(f'Could not recognize the Korean Abyss prompt: {error}')
+        return []
 
     def wait_for_abyss_start(self):
         return self.wait_until(lambda: (self.get_abyss_remaining_time(force=True) or 0) > 0,

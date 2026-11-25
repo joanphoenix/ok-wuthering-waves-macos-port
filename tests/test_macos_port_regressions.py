@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import sys
 from unittest.mock import MagicMock, patch
 
 try:
@@ -143,11 +144,13 @@ def test_capture_rejects_transient_geometry_and_ignores_old_discovery_crop():
 
 def test_focus_is_rechecked_at_event_dispatch():
     quartz = MagicMock()
-    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=MagicMock(side_effect=[True, False, False]))
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=MagicMock(side_effect=[True, False, True]))
     with patch.object(inputs, 'Quartz', quartz):
         interaction = inputs.MacOSQuartzInteraction(None, window)
         with pytest.raises(TaskDisabledException):
             interaction.send_key_down('r')
+        assert not interaction._held_keys
+        assert window.is_foreground.call_count == 2
         quartz.CGEventPost.assert_not_called()
         quartz.CGEventPostToPid.assert_not_called()
 
@@ -241,7 +244,8 @@ def test_macos_hides_cloud_device_and_migrates_saved_selection():
     from ok.device.DeviceManager import DeviceManager
 
     manager = DeviceManager.__new__(DeviceManager)
-    manager.config = {'preferred': 'browser'}
+    manager.config = {'preferred': 'browser', 'capture': 'browser'}
+    manager.windows_capture_config = {'capture_method': ['WGC', 'BitBlt_RenderFull']}
     native = {'imei': 'pc', 'device': 'windows', 'connected': True}
     manager.device_dict = {
         'browser': {'imei': 'browser', 'device': 'browser'},
@@ -255,4 +259,50 @@ def test_macos_hides_cloud_device_and_migrates_saved_selection():
         manager.update_browser_device()
         assert 'browser' not in manager.device_dict
         assert manager.get_preferred_device() is native
+        assert manager.get_preferred_capture() == 'WGC'
         alert.assert_called_once()
+
+
+def test_macos_foreground_requires_the_active_application():
+    quartz = SimpleNamespace(kCGWindowOwnerPID='pid', kCGWindowIsOnscreen='onscreen')
+    window = {'pid': 42, 'onscreen': True}
+    with patch.object(windows, '_quartz', return_value=quartz), \
+            patch.object(windows, '_frontmost_pid') as frontmost, \
+            patch.object(windows, '_get_window_dict', return_value=window):
+        frontmost.return_value = 99  # another app, even without a window
+        assert not windows.is_foreground_window(7)
+        frontmost.return_value = 42
+        assert windows.is_foreground_window(7)
+        window['onscreen'] = False
+        assert not windows.is_foreground_window(7)
+
+
+def test_frontmost_app_does_not_depend_on_a_cocoa_run_loop():
+    # NSWorkspace stays stale without a main run loop (web server and headless
+    # runs), which would keep sending input after the user switched apps.
+    appkit = MagicMock()
+    appkit.NSWorkspace.sharedWorkspace().frontmostApplication().processIdentifier.return_value = 42
+    with patch.object(windows, '_appkit', return_value=appkit):
+        with patch.object(windows, '_process_manager_pid', return_value=lambda: 99):
+            assert windows._frontmost_pid() == 99
+        with patch.object(windows, '_process_manager_pid', return_value=lambda: None):
+            assert windows._frontmost_pid() is None  # a failed query is not foreground
+        with patch.object(windows, '_process_manager_pid', return_value=None):
+            assert windows._frontmost_pid() == 42  # API removed: AppKit is all that is left
+    if sys.platform == 'darwin':
+        assert windows._process_manager_pid() is not None
+
+
+def test_unsupported_cloud_requests_preserve_native_device_settings():
+    from ok.device.DeviceManager import DeviceManager
+
+    manager = DeviceManager.__new__(DeviceManager)
+    manager.config = {'preferred': 'pc', 'pc_full_path': '/Applications/Wuthering Waves.app'}
+    manager.device_dict = {'pc': {'imei': 'pc', 'device': 'windows'}}
+    manager.clear_devices = MagicMock()
+    with patch('ok.device.DeviceManager.sys.platform', 'darwin'):
+        for request_capture in (manager.update_capture, manager.ensure_capture):
+            with pytest.raises(ValueError, match='requires Windows'):
+                request_capture({'browser': {}})
+    manager.clear_devices.assert_not_called()
+    assert manager.get_preferred_device() is manager.device_dict['pc']

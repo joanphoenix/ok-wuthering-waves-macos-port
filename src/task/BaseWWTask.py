@@ -126,7 +126,7 @@ class BaseWWTask(BaseTask):
     def find_f_with_claim_text(self):
         return self.find_f_with_text(target_text=[re.compile('领取|領取|Claim', re.IGNORECASE)])
 
-    def find_f_with_text(self, target_text=None):
+    def find_f_with_text(self, target_text=None, fallback_ocr=None):
         f = self.find_one(Labels.pick_up_f_hcenter_vcenter, box=self.f_search_box, threshold=0.8)
         if not f:
             return None
@@ -148,6 +148,8 @@ class BaseWWTask(BaseTask):
             search_text_box = f.copy(x_offset=f.width * 5.2, width_offset=f.width * 6, height_offset=4.5 * f.height,
                                      y_offset=-0.8 * f.height, name='search_text_box')
             text = self.ocr(box=search_text_box, match=target_text)
+            if not text and fallback_ocr is not None:
+                text = fallback_ocr(search_text_box)
             logger.debug(f'found f with text {text}, target_text {target_text}')
             if text:
                 if text[0].y > search_text_box.y + f.height * 1:

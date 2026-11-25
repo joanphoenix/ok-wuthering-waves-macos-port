@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
+from ok import Box
 from src.combat.CombatCheck import CombatCheck
 from src.scene.WWScene import WWScene
 from src.task.BaseCombatTask import BaseCombatTask
@@ -84,8 +85,26 @@ class TestAbyssRestart(unittest.TestCase):
         task = self.make_task()
         task.find_abyss_start_prompt()
         patterns = task.find_f_with_text.call_args.kwargs['target_text']
-        self.assertTrue(any(pattern.fullmatch('Start Challenge') for pattern in patterns))
+        for prompt in ('Start Challenge', '開始挑戰', 'チャレンジを開始', '도전 시작',
+                       'Iniciar desafío', 'Lancer le défi', 'Herausforderung starten'):
+            with self.subTest(prompt=prompt):
+                self.assertTrue(any(pattern.fullmatch(prompt) for pattern in patterns))
         self.assertFalse(any(pattern.fullmatch('Talk') for pattern in patterns))
+
+    @patch('src.task.BaseCombatTask.sys.platform', 'darwin')
+    def test_abyss_prompt_falls_back_when_standard_ocr_cannot_read_korean(self):
+        task = self.make_task()
+        del task.find_f_with_text
+        icon = Box(30, 40, 20, 20)
+        task.get_box_by_name = Mock(return_value=icon)
+        task.find_one = Mock(return_value=icon)
+        task.calculate_color_percentage = Mock(return_value=1.0)
+        task.recognize_korean_abyss_prompt = Mock(side_effect=lambda box: [
+            Box(box.x, box.y, 40, 10, name='도전 시작')
+        ])
+
+        self.assertIs(task.find_abyss_start_prompt(), icon)
+        task.recognize_korean_abyss_prompt.assert_called_once()
 
     def test_pressing_f_without_timer_does_not_force_combat(self):
         task = self.make_task()

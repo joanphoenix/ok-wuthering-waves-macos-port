@@ -89,9 +89,9 @@ class MacOSQuartzInteraction(BaseInteraction):
     def _post_to_game(self, event, release=False):
         # Unreal's game input needs the HID event stream. Recheck focus at
         # dispatch instead of relying only on the public method's entry check.
+        if not release:
+            self._require_input_permission()
         if self.clickable():
-            if not release:
-                self._require_input_permission()
             Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
         elif release:
             # Release held game inputs without sending new actions to another app.
@@ -99,7 +99,8 @@ class MacOSQuartzInteraction(BaseInteraction):
             if pid > 0:
                 Quartz.CGEventPostToPid(pid, event)
         else:
-            self._require_foreground()
+            self.on_destroy()
+            raise TaskDisabledException('Game lost focus; input stopped')
 
     def _require_input_permission(self):
         # Screen capture and input posting are separate TCC permissions. Check
