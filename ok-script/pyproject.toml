@@ -40,6 +40,7 @@ dependencies = [
     "mcp==2.3.0",
     "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
+    "pyobjc-framework-Vision>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-ScreenCaptureKit>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-CoreMedia>=10.0; sys_platform == 'darwin'",

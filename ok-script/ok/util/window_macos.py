@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ctypes
+import functools
 import os
 import re
 import subprocess
@@ -23,6 +25,47 @@ def _quartz():
 def _appkit():
     import AppKit
     return AppKit
+
+
+@functools.lru_cache(maxsize=1)
+def _process_manager_pid():
+    """Return a function giving the active app's PID, or None if unavailable.
+
+    Uses the Process Manager, which is deprecated but asks the system on every
+    call. NSWorkspace.frontmostApplication() is only refreshed by a Cocoa main
+    run loop, so it goes stale in web server and headless runs.
+    """
+    try:
+        library = ctypes.CDLL('/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices')
+
+        class ProcessSerialNumber(ctypes.Structure):
+            _fields_ = [('high', ctypes.c_uint32), ('low', ctypes.c_uint32)]
+
+        get_front_process = library.GetFrontProcess
+        get_front_process.argtypes = [ctypes.POINTER(ProcessSerialNumber)]
+        get_front_process.restype = ctypes.c_int16
+        get_process_pid = library.GetProcessPID
+        get_process_pid.argtypes = [ctypes.POINTER(ProcessSerialNumber), ctypes.POINTER(ctypes.c_int32)]
+        get_process_pid.restype = ctypes.c_int32
+    except (OSError, AttributeError) as e:
+        logger.warning(f"Process Manager is unavailable, focus checks fall back to AppKit: {e}")
+        return None
+
+    def front_pid():
+        serial, pid = ProcessSerialNumber(), ctypes.c_int32()
+        if get_front_process(ctypes.byref(serial)) or get_process_pid(ctypes.byref(serial), ctypes.byref(pid)):
+            return None
+        return pid.value
+
+    return front_pid
+
+
+def _frontmost_pid() -> Optional[int]:
+    query = _process_manager_pid()
+    if query is not None:
+        return query()
+    app = _appkit().NSWorkspace.sharedWorkspace().frontmostApplication()
+    return None if app is None else int(app.processIdentifier())
 
 
 def is_blank(image):
@@ -269,23 +312,12 @@ def is_foreground_window(hwnd: int) -> bool:
     if not hwnd or hwnd <= 0:
         return False
     try:
-        pid = get_window_pid(hwnd)
-        if pid <= 0:
-            return False
-        # Query the frontmost window on screen via Quartz (safe from background threads)
+        info = _get_window_dict(hwnd)
         Quartz = _quartz()
-        window_list = Quartz.CGWindowListCopyWindowInfo(
-            Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
-            Quartz.kCGNullWindowID,
-        )
-        if window_list:
-            for w in window_list:
-                layer = int(w.get(Quartz.kCGWindowLayer, 0))
-                if layer != 0:
-                    continue
-                owner_pid = int(w.get(Quartz.kCGWindowOwnerPID, 0))
-                w_id = int(w.get(Quartz.kCGWindowNumber, 0))
-                return owner_pid == pid or w_id == int(hwnd)
+        if not info or not info.get(Quartz.kCGWindowIsOnscreen, False):
+            return False
+        pid = int(info.get(Quartz.kCGWindowOwnerPID, 0))
+        return pid > 0 and _frontmost_pid() == pid
     except Exception as e:
         logger.debug(f"is_foreground_window error: {e}")
     return False
@@ -301,10 +333,43 @@ def bring_window_to_front(hwnd: int) -> bool:
         AppKit = _appkit()
         app = AppKit.NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
         if app is not None:
-            return bool(app.activateWithOptions_(AppKit.NSApplicationActivateIgnoringOtherApps))
+            app.activateWithOptions_(AppKit.NSApplicationActivateIgnoringOtherApps)
+            if _wait_foreground(hwnd, 0.5):
+                return True
+        # macOS 14+ ignores NSApplicationActivateIgnoringOtherApps from a background
+        # process, so the game stays behind whatever app currently has focus. System
+        # Events can still raise it (it needs the Automation permission once).
+        if _activate_with_system_events(pid):
+            return _wait_foreground(hwnd, 2.0)
     except Exception as e:
         logger.warning(f"bring_window_to_front failed for {hwnd}: {e}")
     return False
+
+
+def _wait_foreground(hwnd: int, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while True:
+        if is_foreground_window(hwnd):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+
+
+def _activate_with_system_events(pid: int) -> bool:
+    try:
+        result = subprocess.run(
+            ["osascript", "-e",
+             f'tell application "System Events" to set frontmost of '
+             f'(first process whose unix id is {int(pid)}) to true'],
+            capture_output=True, text=True, timeout=5)
+    except Exception as e:
+        logger.warning(f"System Events activation failed for pid {pid}: {e}")
+        return False
+    if result.returncode != 0:
+        logger.warning(f"System Events activation failed for pid {pid}: {result.stderr.strip()}")
+        return False
+    return True
 
 
 def show_title_bar(hwnd: int) -> bool:

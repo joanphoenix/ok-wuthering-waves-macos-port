@@ -20,8 +20,8 @@ These files don't exist upstream.
 
 - `ok/device/capture_methods/macos_screencapturekit.py`: streams the game window with ScreenCaptureKit on macOS 14 and later. This is the default.
 - `ok/device/capture_methods/macos_quartz.py`: captures the game window with CoreGraphics (Quartz). This is the fallback, and the default on macOS 13.
-- `ok/device/interaction_methods/macos_quartz.py`: sends keyboard and mouse input as Quartz events.
-- `ok/util/window_macos.py`: finds the game window and tracks its position, size and focus.
+- `ok/device/interaction_methods/macos_quartz.py`: sends keyboard and mouse input as Quartz events, and reports a missing Accessibility permission instead of posting silently.
+- `ok/util/window_macos.py`: finds the game window and tracks its position, size and focus. Focus is read through the Process Manager, because `NSWorkspace` goes stale without a Cocoa run loop, and activation falls back to System Events.
 
 ### Web UI mode
 
@@ -74,7 +74,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 ### macOS input
 
 - `ok/device/interaction_methods/post_message.py`: on macOS, the default "PostMessage" option is backed by Quartz input.
-- `ok/device/interaction_methods/pynput.py`: uses native macOS keycodes for the keyboard.
+- `ok/device/interaction_methods/pynput.py`: uses native macOS keycodes for the keyboard, checks the input permission for the mouse, and reuses the pressing controller so moves during a hold drag.
 - `ok/device/interaction_methods/keys.py`: defines the Windows key-code constants itself when pywin32 is missing.
 
 ### macOS runtime behaviour
@@ -110,7 +110,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 
 ### Packaging
 
-- `pyproject.toml`: Windows-only dependencies are limited to Windows, PySide6 and the pyobjc frameworks (including ScreenCaptureKit) are added for macOS, plus the `web` extra and web package data.
+- `pyproject.toml`: Windows-only dependencies are limited to Windows, PySide6 and the pyobjc frameworks (including ScreenCaptureKit, and Vision for the Korean Abyss prompt) are added for macOS, plus the `web` extra and web package data.
 - `setup.py`: the `+macos.1` version.
 - `README.md`: notes on the port.
 

@@ -1,6 +1,9 @@
 name: Windows Release
 run-name: Windows release · ${{ github.ref_name }}
 
+# Upstream's Windows release pipeline: it signs, uploads to CNB/GitHub with upstream-only secrets
+# and runs unpinned third-party actions. Every job is guarded so a v* tag pushed on a fork
+# (for example by the deploy skill) cannot start it.
 on:
   push:
     tags:
@@ -26,6 +29,7 @@ jobs:
   validate:
     name: 1 · Validate
     runs-on: windows-latest
+    if: github.repository == 'ok-oldking/ok-wuthering-waves'
 
     steps:
       - name: Configure runner
@@ -103,6 +107,7 @@ jobs:
     name: 2 · Synchronize repositories
     needs: validate
     runs-on: windows-latest
+    if: github.repository == 'ok-oldking/ok-wuthering-waves'
     outputs:
       is_release: ${{ steps.release_version.outputs.is_release }}
       start_tag: ${{ steps.sync.outputs.start_tag }}
@@ -171,6 +176,7 @@ jobs:
     name: 3 · Build and optionally sign
     needs: synchronize
     runs-on: windows-latest
+    if: github.repository == 'ok-oldking/ok-wuthering-waves'
     env:
       SIGN_BUILD: ${{ needs.synchronize.outputs.is_release }}
 
@@ -391,6 +397,7 @@ jobs:
     name: 4 · Publish
     needs: [ synchronize, package ]
     runs-on: ubuntu-latest
+    if: github.repository == 'ok-oldking/ok-wuthering-waves'
 
     steps:
       - name: Check out source

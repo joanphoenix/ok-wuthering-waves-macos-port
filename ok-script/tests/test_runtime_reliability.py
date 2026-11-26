@@ -134,3 +134,26 @@ def test_macos_pynput_cleanup_releases_native_keys_and_pynput_mouse_after_focus_
         mouse.release.assert_called_once_with('left')
         assert not backend._native_keyboard._held_keys
         assert not backend._held_buttons
+
+
+def test_macos_pynput_mouse_checks_permission_but_releases_remain_possible():
+    from ok.device.interaction_methods import macos_quartz
+    native, mouse = MagicMock(), MagicMock()
+    native._require_input_permission.side_effect = PermissionError('Accessibility')
+    fake = SimpleNamespace(mouse=SimpleNamespace(Controller=lambda: mouse,
+                           Button=SimpleNamespace(left='left', right='right', middle='middle')))
+    with patch('ok.device.interaction_methods.pynput.sys.platform', 'darwin'), \
+         patch.object(macos_quartz, 'MacOSQuartzInteraction', return_value=native), \
+         patch.dict('sys.modules', {'pynput': fake}):
+        capture = SimpleNamespace(get_abs_cords=lambda x, y: (x, y))
+        backend = PynputInteraction(capture, MagicMock())
+        for action in [backend.mouse_down, backend.click,
+                       lambda: backend.move(10, 10),
+                       lambda: backend.scroll(10, 10, 1),
+                       lambda: backend.swipe(0, 0, 20, 20, 500)]:
+            with pytest.raises(PermissionError, match='Accessibility'):
+                action()
+        mouse.press.assert_not_called()
+        mouse.scroll.assert_not_called()
+        backend.mouse_up()
+        mouse.release.assert_called_once_with('left')

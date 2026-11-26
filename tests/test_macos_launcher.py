@@ -61,5 +61,7 @@ def test_macos_app_window_initialization():
         assert ok.app.main_window.tasks_page is not None
         assert ok.app.main_window.isVisible()
     finally:
+        if ok.app.main_window is not None:
+            ok.app.main_window.dispose()
         ok.quit()
 
