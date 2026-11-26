@@ -340,10 +340,19 @@ class TestExecutorExclusive(ExecutorJobTestCase):
 
     def test_release_cancels_owner_jobs(self):
         release = threading.Event()
+        started = threading.Event()
+
+        def block():
+            started.set()
+            return release.wait()
+
         with patch.object(task_executor_module.communicate.executor_exclusive, 'emit'):
             self.executor.acquire_exclusive('agent')
-            blocker = self.executor.submit(release.wait, owner='agent')
+            blocker = self.executor.submit(block, owner='agent')
             queued = self.executor.submit(lambda: 'never', owner='agent')
+            # Release only once the blocker is running; a still-queued blocker
+            # would be cancelled along with the other owned jobs.
+            self.assertTrue(started.wait(WAIT))
 
             self.assertFalse(self.executor.release_exclusive('other'))
             self.assertTrue(self.executor.release_exclusive('agent'))
