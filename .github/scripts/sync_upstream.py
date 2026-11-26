@@ -40,6 +40,8 @@ MAC_BUILD_SUFFIX = "+macos.1"
 VERSION_FILES = (
     "run_macos.sh",
     "ok-script/setup.py",
+    # Also makes the in-app updater reinstall dependencies after an ok-script update.
+    "requirements-macos.txt",
 )
 # sdist packaging metadata that is not part of the vendored source tree.
 SDIST_EXCLUDES = ("PKG-INFO", "ok_script.egg-info")

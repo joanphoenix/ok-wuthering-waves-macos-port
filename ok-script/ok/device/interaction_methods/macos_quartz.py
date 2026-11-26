@@ -8,6 +8,9 @@ from ok.util.window_macos import get_window_pid
 
 logger = Logger.get_logger(__name__)
 
+# How long to wait before asking a second time whether the game has focus.
+FOCUS_RECHECK_DELAY = 0.05
+
 try:
     import Quartz
 except Exception as e:
@@ -81,8 +84,19 @@ class MacOSQuartzInteraction(BaseInteraction):
     def clickable(self):
         return bool(self.hwnd_window and self.hwnd_window.is_foreground())
 
+    def _has_focus(self):
+        """clickable(), asked once more after FOCUS_RECHECK_DELAY when it says no.
+
+        A single failed focus query (the active-app lookup can fail for a
+        moment) would otherwise stop the running task in the middle of combat.
+        """
+        if self.clickable():
+            return True
+        time.sleep(FOCUS_RECHECK_DELAY)
+        return self.clickable()
+
     def _require_foreground(self):
-        if not self.clickable():
+        if not self._has_focus():
             self.on_destroy()
             raise TaskDisabledException('Game lost focus; input stopped')
 
@@ -91,7 +105,8 @@ class MacOSQuartzInteraction(BaseInteraction):
         # dispatch instead of relying only on the public method's entry check.
         if not release:
             self._require_input_permission()
-        if self.clickable():
+        focused = self.clickable() if release else self._has_focus()
+        if focused:
             Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
         elif release:
             # Release held game inputs without sending new actions to another app.

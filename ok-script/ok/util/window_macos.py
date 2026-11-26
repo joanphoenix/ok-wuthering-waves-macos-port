@@ -308,11 +308,33 @@ def get_window_bounds(hwnd: int):
         return 0, 0, 0, 0, 0, 0, 1.0
 
 
+# Input methods check focus before every key and mouse event, several times
+# per click. Asking the window server for the window list each time adds
+# milliseconds of jitter to every press, so the window's description is reused
+# for this long. The active application is still read on every call: that is
+# what stops input from reaching another app.
+WINDOW_INFO_TTL = 0.5
+_window_info_cache = {}
+
+
+def _cached_window_dict(hwnd: int) -> Optional[dict]:
+    now = time.monotonic()
+    cached = _window_info_cache.get(hwnd)
+    if cached is not None and now - cached[0] < WINDOW_INFO_TTL:
+        return cached[1]
+    info = _get_window_dict(hwnd)
+    if info:
+        _window_info_cache[hwnd] = (now, info)
+    else:
+        _window_info_cache.pop(hwnd, None)
+    return info
+
+
 def is_foreground_window(hwnd: int) -> bool:
     if not hwnd or hwnd <= 0:
         return False
     try:
-        info = _get_window_dict(hwnd)
+        info = _cached_window_dict(hwnd)
         Quartz = _quartz()
         if not info or not info.get(Quartz.kCGWindowIsOnscreen, False):
             return False

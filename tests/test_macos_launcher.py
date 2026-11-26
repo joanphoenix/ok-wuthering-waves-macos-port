@@ -7,6 +7,7 @@ def test_failed_install_retries_and_dependency_changes_invalidate_stamp(tmp_path
     root = Path(__file__).resolve().parents[1]
     script = tmp_path / 'run_macos.sh'
     script.write_text((root / 'run_macos.sh').read_text())
+    (tmp_path / 'requirements-macos.txt').write_text((root / 'requirements-macos.txt').read_text())
     (tmp_path / 'ok-script').mkdir()
     (tmp_path / 'ok-script/pyproject.toml').write_text('framework')
     (tmp_path / 'pyproject.toml').write_text('app')
@@ -15,10 +16,12 @@ def test_failed_install_retries_and_dependency_changes_invalidate_stamp(tmp_path
     python = bin_dir / 'python'
     python.write_text('''#!/bin/sh
 case "$*" in
-  *"-m pip install -e"*)
+  *"-m pip install -r"*)
     echo install >> "$TEST_LOG"
-    echo "$*" >> "$TEST_ARGUMENTS"
     if [ -f "$FAIL_INSTALL" ]; then exit 1; fi
+    ;;
+  *"-m pip install -e"*)
+    echo "$*" >> "$TEST_ARGUMENTS"
     ;;
 esac
 exit 0
@@ -47,6 +50,29 @@ exit 0
     assert len(log.read_text().splitlines()) == 4
     assert launch().returncode == 0
     assert len(log.read_text().splitlines()) == 5
+    # The in-app updater installs requirements-macos.txt, so it is part of the stamp.
+    (tmp_path / 'requirements-macos.txt').write_text('changed requirements')
+    assert launch().returncode == 0
+    assert len(log.read_text().splitlines()) == 6
+
+
+def test_in_app_updater_installs_the_macos_requirements():
+    # A checkout updates with the first pyappify.yml profile unless
+    # PYAPPIFY_APP_PROFILE names one; requirements.txt has Windows-only pins.
+    from pyappify import standalone
+
+    root = Path(__file__).resolve().parents[1]
+    profiles = standalone.parse_profiles((root / 'pyappify.yml').read_text())
+    for name in (None, 'macOS'):
+        profile = standalone.select_profile(profiles, name)
+        assert profile['name'] == 'macOS'
+        assert profile['requirements'] == 'requirements-macos.txt'
+        assert '--no-deps' not in profile['pip_args']
+    requirements = [line for line in (root / 'requirements-macos.txt').read_text().splitlines()
+                    if line and not line.startswith('#')]
+    assert not any('pywin32' in line for line in requirements)
+    assert '-e ./ok-script[default,ocr,qt]' in requirements
+    assert 'export PYAPPIFY_APP_PROFILE=macOS' in (root / 'run_macos.sh').read_text()
 
 
 def test_macos_app_window_initialization():

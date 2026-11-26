@@ -318,10 +318,12 @@ class MacOSScreenCaptureKitMethod(MacOSQuartzCaptureMethod):
             return _FALLBACK
         if img is None:
             return None
-        # Same rule as Quartz capture: drop frames while the stream and the
-        # window geometry disagree, then crop the client area off the title bar.
+        # The stream catches up with a window resize a few frames late. Take
+        # that frame from Quartz instead of returning None: the task executor
+        # sleeps a full second after a None frame, which stalls combat.
         if img.shape[1] != width or img.shape[0] != height:
-            return None
+            return _FALLBACK
+        # Crop the client area off the title bar, as Quartz capture does.
         target_w, target_h = window.client_width, window.client_height
         if not (0 < target_w <= width and 0 < target_h <= height):
             return None

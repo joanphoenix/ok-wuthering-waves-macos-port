@@ -33,6 +33,19 @@ def test_input_stops_on_focus_loss_and_releases_only_to_game():
         assert quartz.CGEventPostToPid.call_count == 1
 
 
+def test_one_failed_focus_query_does_not_stop_combat():
+    # The active-app lookup can fail for a moment; asking again shortly after
+    # keeps a running task going while a real focus loss still stops it.
+    quartz = MagicMock()
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=MagicMock(side_effect=[False, True, True]))
+    with patch.object(inputs, 'Quartz', quartz), patch.object(inputs, 'get_window_pid', return_value=42), \
+            patch.object(inputs.time, 'sleep') as sleep:
+        interaction = inputs.MacOSQuartzInteraction(None, window)
+        interaction.send_key_down('w')
+        sleep.assert_called_once_with(inputs.FOCUS_RECHECK_DELAY)
+        assert quartz.CGEventPost.call_count == 1
+
+
 def test_foreground_input_uses_game_compatible_hid_stream():
     quartz = MagicMock()
     window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=lambda: True)
@@ -137,13 +150,14 @@ def test_capture_rejects_transient_geometry_and_ignores_old_discovery_crop():
 
 def test_focus_is_rechecked_at_event_dispatch():
     quartz = MagicMock()
-    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=MagicMock(side_effect=[True, False, True]))
+    # Focused at the entry check, gone at dispatch and still gone when asked again.
+    window = SimpleNamespace(hwnd=7, top_hwnd=0, is_foreground=MagicMock(side_effect=[True, False, False]))
     with patch.object(inputs, 'Quartz', quartz):
         interaction = inputs.MacOSQuartzInteraction(None, window)
         with pytest.raises(TaskDisabledException):
             interaction.send_key_down('r')
         assert not interaction._held_keys
-        assert window.is_foreground.call_count == 2
+        assert window.is_foreground.call_count == 3
         quartz.CGEventPost.assert_not_called()
         quartz.CGEventPostToPid.assert_not_called()
 
@@ -257,6 +271,7 @@ def test_coordinate_free_attack_uses_cursor_after_move_back():
 def test_macos_foreground_requires_the_active_application():
     quartz = SimpleNamespace(kCGWindowOwnerPID='pid', kCGWindowIsOnscreen='onscreen')
     window = {'pid': 42, 'onscreen': True}
+    windows._window_info_cache.clear()
     with patch.object(windows, '_quartz', return_value=quartz), \
             patch.object(windows, '_frontmost_pid') as frontmost, \
             patch.object(windows, '_get_window_dict', return_value=window):
@@ -266,6 +281,27 @@ def test_macos_foreground_requires_the_active_application():
         assert windows.is_foreground_window(7)
         window['onscreen'] = False
         assert not windows.is_foreground_window(7)
+    windows._window_info_cache.clear()
+
+
+def test_focus_checks_reuse_the_window_info_but_always_ask_for_the_active_app():
+    # Input checks focus several times per click; a window-list query each
+    # time made every key press slower and less even.
+    quartz = SimpleNamespace(kCGWindowOwnerPID='pid', kCGWindowIsOnscreen='onscreen')
+    windows._window_info_cache.clear()
+    with patch.object(windows, '_quartz', return_value=quartz), \
+            patch.object(windows, '_frontmost_pid', return_value=42) as frontmost, \
+            patch.object(windows, '_get_window_dict', return_value={'pid': 42, 'onscreen': True}) as info, \
+            patch.object(windows.time, 'monotonic', return_value=100.0) as clock:
+        assert all(windows.is_foreground_window(7) for _ in range(5))
+        assert info.call_count == 1
+        assert frontmost.call_count == 5
+        frontmost.return_value = 99  # switching apps is seen at once
+        assert not windows.is_foreground_window(7)
+        clock.return_value = 100.0 + windows.WINDOW_INFO_TTL
+        windows.is_foreground_window(7)
+        assert info.call_count == 2
+    windows._window_info_cache.clear()
 
 
 def test_frontmost_app_does_not_depend_on_a_cocoa_run_loop():

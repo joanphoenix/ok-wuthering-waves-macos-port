@@ -149,7 +149,9 @@ Early shell or dependency-installation errors may appear only in the terminal. I
 
 ## Updating and development
 
-Before updating, stop automation and close the tool. Review local changes with `git status`, then update a clean checkout:
+The app can update itself: open **About**, click **Check for updates**, pick `main` and click **Update**. The app closes, updates the checkout, installs the packages in `requirements-macos.txt` and starts again. This needs a checkout without changes to tracked files.
+
+To update by hand instead: before updating, stop automation and close the tool. Review local changes with `git status`, then update a clean checkout:
 
 ```bash
 git pull --ff-only

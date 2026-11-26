@@ -74,10 +74,11 @@ def test_returns_the_streamed_client_area(method):
     assert (frame[:, :, 1] == 255).all()
 
 
-def test_drops_frames_while_geometry_disagrees(method):
+def test_uses_quartz_while_geometry_disagrees(method):
+    # A None frame makes the task executor sleep for a second.
     method.do_get_frame()
     FakeStream.instances[0].push(bgr(400, 700))
-    assert method.do_get_frame() is None
+    assert method.do_get_frame() == "quartz"
 
 
 def test_resizes_the_stream_with_the_window(method):
