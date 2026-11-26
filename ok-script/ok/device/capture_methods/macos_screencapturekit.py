@@ -47,6 +47,8 @@ QUEUE_DEPTH = 5
 START_TIMEOUT = 3.0
 # How long do_get_frame waits for a frame newer than the one it returned last.
 NEW_FRAME_WAIT = 1.0 / 30
+# Short gaps are normal, but old frames must not drive game input.
+MAX_FRAME_AGE = 0.25
 # A stream that delivers nothing for this long counts as failed.
 FIRST_FRAME_TIMEOUT = 2.0
 RETRY_AFTER = 30.0
@@ -144,6 +146,7 @@ class WindowStream:
         self._cond = threading.Condition()
         self._sample = None
         self._seq = 0
+        self._sample_at = 0.0
         self._stream = None
         self._output = None
         self._queue = None
@@ -217,6 +220,7 @@ class WindowStream:
             return
         with self._cond:
             self._sample = sample_buffer
+            self._sample_at = time.monotonic()
             self._seq += 1
             self._cond.notify_all()
 
@@ -226,11 +230,11 @@ class WindowStream:
             self._cond.notify_all()
 
     def latest(self, after_seq, timeout):
-        """Return (sample_buffer, seq), waiting up to timeout for one newer than after_seq."""
+        """Return the latest sample, sequence, and monotonic arrival time."""
         with self._cond:
             if self._seq <= after_seq and self.error is None:
                 self._cond.wait(timeout)
-            return self._sample, self._seq
+            return self._sample, self._seq, self._sample_at
 
 
 class MacOSScreenCaptureKitMethod(MacOSQuartzCaptureMethod):
@@ -300,7 +304,7 @@ class MacOSScreenCaptureKitMethod(MacOSQuartzCaptureMethod):
             stream = self._stream
             stream.resize(width, height)
 
-        sample, seq = stream.latest(self._last_seq, NEW_FRAME_WAIT)
+        sample, seq, sample_at = stream.latest(self._last_seq, NEW_FRAME_WAIT)
         if stream.error is not None:
             with self._stream_lock:
                 return self._fail(stream.error)
@@ -308,6 +312,8 @@ class MacOSScreenCaptureKitMethod(MacOSQuartzCaptureMethod):
             if time.time() - stream.started_at > FIRST_FRAME_TIMEOUT:
                 with self._stream_lock:
                     return self._fail("no frames delivered")
+            return _FALLBACK
+        if time.monotonic() - sample_at > MAX_FRAME_AGE:
             return _FALLBACK
         self._last_seq = seq
 
@@ -317,7 +323,7 @@ class MacOSScreenCaptureKitMethod(MacOSQuartzCaptureMethod):
             logger.error(f"ScreenCaptureKit frame conversion error: {e}")
             return _FALLBACK
         if img is None:
-            return None
+            return _FALLBACK
         # The stream catches up with a window resize a few frames late. Take
         # that frame from Quartz instead of returning None: the task executor
         # sleeps a full second after a None frame, which stalls combat.

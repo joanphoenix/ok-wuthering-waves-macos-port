@@ -1,11 +1,9 @@
 # FeatureSet.py
-import glob
 import json
 import math
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 import threading
 import time
@@ -601,77 +599,6 @@ def filter_and_sort_matches(result, threshold, w, h):
         covered[max(0, y - h + 1):y + h, max(0, x - w + 1):x + w] = True
     return selected_matches
 
-
-def compress_copy_x_anylabeling(x_anylabeling_folder, target_folder, generate_label_enmu=None, use_exe=None):
-    """Obsolete packed export; convert annotations to COCO, then use generate_templates."""
-    warnings.warn('compress_copy_x_anylabeling is obsolete; use generate_templates with COCO annotations',
-                  DeprecationWarning, stacklevel=2)
-    classes_path = os.path.join(x_anylabeling_folder, "classes.txt")
-    output_dir = os.path.join(x_anylabeling_folder, "coco_output")
-
-    if use_exe is None:
-        cli_tool = "xanylabeling"
-    else:
-        try:
-            cli_tool = os.path.abspath(use_exe)
-        except Exception:
-            cli_tool = "xanylabeling"
-
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-
-    labels = set()
-    json_files = glob.glob(os.path.join(x_anylabeling_folder, "*.json"))
-    if not json_files:
-        raise ValueError(f"No JSON files found in {x_anylabeling_folder}")
-
-    for jf in json_files:
-        with open(jf, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            for shape in data.get('shapes', []):
-                labels.add(shape['label'])
-
-    sorted_labels = sorted(list(labels))
-
-    print(f'sorted_labels {sorted_labels}')
-
-    with open(classes_path, 'w', encoding='utf-8') as f:
-        f.write("\n".join(sorted_labels))
-
-    cmd = [
-        cli_tool, "convert",
-        "--task", "xlabel2coco",
-        "--mode", "detect",
-        "--images", x_anylabeling_folder,
-        "--labels", x_anylabeling_folder,
-        "--output", output_dir,
-        "--classes", classes_path
-    ]
-    subprocess.check_call(cmd)
-
-    generated_jsons = glob.glob(os.path.join(output_dir, "**", "*.json"), recursive=True)
-    if not generated_jsons:
-        raise FileNotFoundError("COCO conversion failed, no JSON found in output directory.")
-
-    coco_json_path = generated_jsons[0]
-    with open(coco_json_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    seen = set()
-    new_annotations = []
-    for annotation in data['annotations']:
-        key = (annotation['category_id'], tuple(annotation['bbox']))
-        if key in seen:
-            continue
-        seen.add(key)
-        new_annotations.append(annotation)
-
-    data['annotations'] = new_annotations
-    
-    with open(coco_json_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
-
-    compress_copy_coco(coco_json_path, target_folder, x_anylabeling_folder, generate_label_enmu=generate_label_enmu)
 
 # Parse geometry from the right so underscores and resolution-like text in the
 # original feature name remain intact.
