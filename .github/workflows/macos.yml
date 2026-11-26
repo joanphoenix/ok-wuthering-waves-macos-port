@@ -12,12 +12,14 @@ jobs:
     env:
       QT_QPA_PLATFORM: offscreen
       PYTHONPATH: ok-script:.
-      OK_SCRIPT_BUILD_VERSION: 3.0.14+macos.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # Read from the sync baseline so upstream syncs never have to edit this file.
+      - name: Set the ok-script build version
+        run: echo "OK_SCRIPT_BUILD_VERSION=$(jq -r .ok_script .github/upstream.json)+macos.1" >> "$GITHUB_ENV"
       - name: Install Mac dependencies
         run: python -m pip install -e './ok-script[default,ocr,qt,web,dev]' onnxruntime opencv-python polib OpenCC==1.2.0 dulwich==1.2.21
       - name: Test the application (all test_*.py and Test*.py modules)

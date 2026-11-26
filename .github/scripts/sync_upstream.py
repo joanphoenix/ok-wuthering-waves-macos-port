@@ -34,15 +34,18 @@ TAG_REF_PREFIX = "refs/upstream-tags/"
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = ROOT / ".github" / "upstream.json"
 MAC_BUILD_SUFFIX = "+macos.1"
-# Files that carry the vendored ok-script build version string.
+# Files that carry the vendored ok-script build version string. The workflows
+# read it from .github/upstream.json instead, because the sync can't push
+# workflow changes with Actions' default token.
 VERSION_FILES = (
     "run_macos.sh",
     "ok-script/setup.py",
-    ".github/workflows/macos.yml",
-    ".github/workflows/test.yml",
 )
 # sdist packaging metadata that is not part of the vendored source tree.
 SDIST_EXCLUDES = ("PKG-INFO", "ok_script.egg-info")
+# Upstream workflows are not synced. The fork runs its own CI, and GitHub
+# refuses pushes from Actions' default token that touch workflow files.
+UPSTREAM_EXCLUDES = (".github/workflows",)
 STABLE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 OK_SCRIPT_PIN = re.compile(r'"ok-script\[[^\]]*\]==([^"]+)"')
 PATCH_LIST = ROOT / "ok-script" / "MACOS_PATCHES.md"
@@ -208,7 +211,7 @@ def bump_versions(old_upstream, new_upstream, old_ok, new_ok):
     git("add", *VERSION_FILES, "README.md", str(BASELINE.relative_to(ROOT)))
 
 
-def write_report(path, old, new, old_ok, new_ok, rows, releases):
+def write_report(path, old, new, old_ok, new_ok, rows, releases, skipped=()):
     attention = [row for row in rows if row[0] != "clean"]
     lines = [f"Upstream sync from **{old}** to **{new}**.", ""]
     lines.append("Releases included: " + ", ".join(
@@ -221,6 +224,10 @@ def write_report(path, old, new, old_ok, new_ok, rows, releases):
         lines += [f"| {status} | `{file}` | {note} |" for status, file, note in attention]
         lines += ["", "Files marked `conflict` contain `<<<<<<< ours` / `>>>>>>> theirs` markers. "
                       "Keep the macOS code paths when resolving them."]
+    if skipped:
+        lines += ["", "### Not synced", "",
+                  "Upstream changed these workflows. The fork keeps its own, so they were left alone:", ""]
+        lines += [f"- `{file}`" for file in skipped]
     Path(path).write_text("\n".join(lines) + "\n")
 
 
@@ -254,7 +261,9 @@ def main():
     if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
         sys.exit("working tree has uncommitted changes; commit or stash them first")
 
-    rows = sync_tree(tag_ref(current), tag_ref(target))
+    rows = sync_tree(tag_ref(current), tag_ref(target), excludes=UPSTREAM_EXCLUDES)
+    skipped = [path for _, path in changed_files(tag_ref(current), tag_ref(target))
+               if path.startswith(UPSTREAM_EXCLUDES)]
     target_ok = ok_script_pin(tag_ref(target)) or current_ok
     if target_ok != current_ok:
         with tempfile.TemporaryDirectory() as tmp:
@@ -262,7 +271,7 @@ def main():
             rows += sync_tree(f"refs/ok-script-sdists/{current_ok}", f"refs/ok-script-sdists/{target_ok}",
                               local_prefix="ok-script/", excludes=SDIST_EXCLUDES)
     bump_versions(current, target, current_ok, target_ok)
-    write_report(args.report, current, target, current_ok, target_ok, rows, releases)
+    write_report(args.report, current, target, current_ok, target_ok, rows, releases, skipped)
     print(Path(args.report).read_text())
     return 2 if any(status != "clean" for status, _, _ in rows) else 0
 
