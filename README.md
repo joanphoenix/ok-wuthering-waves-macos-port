@@ -12,6 +12,8 @@ This fork tracks upstream [v3.8.15](https://github.com/ok-oldking/ok-wuthering-w
 - **Additional tasks:** multi-account configuration and daily tasks, Garden, Rahai Blocks, and the 3.8 GalGame event.
 - **Character-specific combat logic:** includes Suoming (锁瞑) heavy attacks and burst sequences, and Douling (卜灵) Trigram detection.
 
+Cultivation Resource Farm, Rahai Blocks, and the GalGame event are listed only when the app language is Simplified Chinese; Cultivation Resource Farm and Rahai Blocks also require a 16:9 game window.
+
 These are tasks registered by the current [configuration](config.py). Availability in the UI does not establish that every task or character rotation has been verified on every macOS version.
 
 ## Requirements and compatibility

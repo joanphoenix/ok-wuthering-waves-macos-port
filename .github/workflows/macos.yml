@@ -20,8 +20,8 @@ jobs:
           python-version: '3.12'
       - name: Install Mac dependencies
         run: python -m pip install -e './ok-script[default,ocr,qt,web,dev]' onnxruntime opencv-python polib OpenCC==1.2.0 dulwich==1.2.21
-      - name: Test launcher and native runtime seams
-        run: python -m pytest -q tests/test_macos_launcher.py tests/test_macos_port_regressions.py
+      - name: Test the application (all test_*.py and Test*.py modules)
+        run: python -m pytest -q tests
       - name: Test the vendored ok-script suite
         run: python -m pytest -q ok-script/tests
       - name: Check every ok-script change is in MACOS_PATCHES.md

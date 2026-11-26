@@ -120,6 +120,8 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
                 spent = self.get_task_by_class(TacetTask).farm_tacet(
                     daily=True, used_stamina=used_stamina, config=self.config)
                 tacet_farmed = spent > 0
+            elif target == CULTIVATION_TARGET and cultivation_task is None:
+                self.log_error(self.tr('Cultivation Target needs the app language set to Simplified Chinese.'))
             elif target == CULTIVATION_TARGET:
                 try:
                     spent = cultivation_task.farm_cultivation(daily=True, used_stamina=used_stamina)

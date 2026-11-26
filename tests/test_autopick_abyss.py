@@ -153,6 +153,16 @@ class AutoPickAbyssTest(unittest.TestCase):
         for call in self.combat.find_one.call_args_list:
             self.assertIs(call.kwargs['box'], region)
 
+    def test_tower_marker_threshold_accepts_non_16_9_windows_but_stays_above_noise(self):
+        # Live 3024x1898 window scored 0.52; unrelated 4K frames peak at 0.39.
+        from src.task.BaseCombatTask import TOWER_START_MARKER_THRESHOLD
+        self.assertLess(TOWER_START_MARKER_THRESHOLD, 0.52)
+        self.assertGreater(TOWER_START_MARKER_THRESHOLD, 0.39)
+        self.combat.find_one = Mock(return_value=None)
+        BaseCombatTask.find_abyss_start_marker(self.combat, box=self.marker.scale(1.5))
+        tower_call = self.combat.find_one.call_args_list[1]
+        self.assertEqual(tower_call.kwargs['threshold'], TOWER_START_MARKER_THRESHOLD)
+
 
 if __name__ == '__main__':
     unittest.main()
