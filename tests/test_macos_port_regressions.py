@@ -168,3 +168,24 @@ def test_web_launch_mode_still_resolves():
     from ok.core.ui_config import resolve_ui_config
     resolved = resolve_ui_config({'gui': {'type': 'web', 'launch_mode': 'pywebview'}})
     assert (resolved['type'], resolved['launch_mode']) == ('web', 'pywebview')
+
+
+def test_cloud_game_browser_device_is_not_offered_off_windows():
+    from ok.device import DeviceManager as device_manager_module
+    manager = device_manager_module.DeviceManager.__new__(device_manager_module.DeviceManager)
+    manager.browser_config = {'url': 'https://example.invalid/', 'resolution': (1920, 1080), 'nick': 'Cloud'}
+    manager.device_dict = {}
+    manager.capture_method = None
+    with patch.object(device_manager_module.sys, 'platform', 'darwin'), \
+            patch.object(device_manager_module, 'windows_graphics_available', return_value=True):
+        manager.update_browser_device()
+    assert 'browser' not in manager.device_dict
+
+
+def test_echo_tasks_open_screenshots_with_the_cross_platform_helper():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    for name in ('ChangeEchoTask.py', 'EnhanceEchoTask.py'):
+        source = (root / 'src' / 'task' / name).read_text(encoding='utf-8')
+        assert 'os.startfile' not in source
+        assert 'open_explorer_folder(' in source

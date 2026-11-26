@@ -1,6 +1,7 @@
 import os
 import re
 import threading
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
@@ -287,7 +288,9 @@ class DeviceManager:
             return imei
 
     def update_browser_device(self):
-        if self.browser_config and windows_graphics_available():
+        # Cloud-game capture drives Chrome/Edge through Win32 windows and WGC;
+        # the macOS Quartz capture cannot back it, so only offer it on Windows.
+        if self.browser_config and sys.platform == "win32" and windows_graphics_available():
             width, height = self.browser_config.get('resolution', (1280, 720))
             nick = self.browser_config.get('nick', 'Browser')
             connected = False

@@ -4,6 +4,7 @@ import time
 import os
 
 from ok import FindFeature, Logger
+from ok.util.explorer import open_explorer_folder
 from ok.feature.Box import get_bounding_box
 from ok.util.file import clear_folder
 from src.scene.WWScene import WWScene
@@ -86,7 +87,7 @@ class EnhanceEchoTask(BaseWWTask, FindFeature):
                               notify=True)
                 if self.info_get('成功声骸数量') >= 1:
                     try:
-                        os.startfile(os.path.abspath("screenshots"))
+                        open_explorer_folder(os.path.abspath("screenshots"))
                     except Exception as e:
                         self.log_error(self.tr('Cannot open screenshot folder: {e}').format(e=e))
                 return
