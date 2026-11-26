@@ -23,10 +23,8 @@ def update_capture_method(config, capture_method, hwnd, exit_event=None, selecte
             method_preferences = [selected_method] + [m for m in method_preferences if m != selected_method]
 
         if sys.platform != "win32":
-            from ok.device.capture_methods.macos_quartz import MacOSQuartzCaptureMethod
             if method_preferences or selected_method:
-                logger.info('use MacOSQuartzCaptureMethod on macOS')
-                return get_capture(capture_method, MacOSQuartzCaptureMethod, hwnd, exit_event)
+                return get_capture(capture_method, macos_capture_class(), hwnd, exit_event)
             return None
 
         for method_name in method_preferences:
@@ -52,6 +50,15 @@ def update_capture_method(config, capture_method, hwnd, exit_event=None, selecte
     except Exception as e:
         logger.error(f'update_capture_method exception, return None: {e}')
         return None
+
+def macos_capture_class():
+    """ScreenCaptureKit on macOS 14+, else the deprecated Quartz window capture."""
+    from ok.device.capture_methods import macos_screencapturekit
+    from ok.device.capture_methods.macos_quartz import MacOSQuartzCaptureMethod
+    if macos_screencapturekit.available():
+        return macos_screencapturekit.MacOSScreenCaptureKitMethod
+    return MacOSQuartzCaptureMethod
+
 
 def get_win_graphics_capture(capture_method, hwnd, exit_event, hdr=False):
     if not windows_graphics_available():

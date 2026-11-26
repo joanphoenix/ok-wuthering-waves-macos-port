@@ -18,7 +18,8 @@ These files don't exist upstream.
 
 ### macOS platform layer
 
-- `ok/device/capture_methods/macos_quartz.py`: captures the game window with CoreGraphics (Quartz).
+- `ok/device/capture_methods/macos_screencapturekit.py`: streams the game window with ScreenCaptureKit on macOS 14 and later. This is the default.
+- `ok/device/capture_methods/macos_quartz.py`: captures the game window with CoreGraphics (Quartz). This is the fallback, and the default on macOS 13.
 - `ok/device/interaction_methods/macos_quartz.py`: sends keyboard and mouse input as Quartz events.
 - `ok/util/window_macos.py`: finds the game window and tracks its position, size and focus.
 
@@ -34,6 +35,7 @@ Upstream ok-script 3.0 removed its web interface. This port keeps it for `./run_
 
 - `tests/conftest.py`: skips Windows-only test modules on other platforms.
 - `tests/qt_helpers.py`: shared Qt test helpers.
+- `tests/test_macos_screencapturekit.py`: ScreenCaptureKit capture and its fallback.
 - `tests/test_pr2_regressions.py`, `tests/test_runtime_reliability.py`: regression tests for port fixes.
 - `pytest.ini`, `.gitignore`.
 - `MACOS_PATCHES.md`: this page.
@@ -50,7 +52,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 - `ok/device/capture_methods/desktop_duplication.py`
 - `ok/device/capture_methods/hwnd_window.py`: also uses `window_macos` to find the game window.
 - `ok/device/capture_methods/types.py`
-- `ok/device/capture_methods/update.py`
+- `ok/device/capture_methods/update.py`: also picks the macOS capture method.
 - `ok/device/capture_methods/windows_graphics.py`
 - `ok/device/interaction_methods/foreground_post_message.py`
 - `ok/device/interaction_methods/genshin.py`
@@ -108,7 +110,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 
 ### Packaging
 
-- `pyproject.toml`: Windows-only dependencies are limited to Windows, PySide6 and pyobjc are added for macOS, plus the `web` extra and web package data.
+- `pyproject.toml`: Windows-only dependencies are limited to Windows, PySide6 and the pyobjc frameworks (including ScreenCaptureKit) are added for macOS, plus the `web` extra and web package data.
 - `setup.py`: the `+macos.1` version.
 - `README.md`: notes on the port.
 

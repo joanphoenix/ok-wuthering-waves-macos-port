@@ -111,7 +111,7 @@ Opening the tool twice leaves the existing instance running. Close it before sta
 
 ## macOS implementation
 
-- **Capture:** CoreGraphics / Quartz window capture replaces the Windows capture backends.
+- **Capture:** on macOS 14 and later, the game window is streamed with ScreenCaptureKit. On older macOS, or if ScreenCaptureKit fails, the tool uses CoreGraphics (Quartz) window capture, which Apple has deprecated. To force Quartz capture, launch with `OK_MAC_CAPTURE=quartz ./run_macos.sh`.
 - **Input:** the default `PostMessage` option maps to Quartz events on macOS. The alternative `Pynput` option uses native game keycodes for the keyboard and Pynput for the mouse.
 - **Inference:** YOLOv8 attempts to use the ONNX Runtime CoreML execution provider when available, with CPU fallback. PP-OCRv6 OCR currently runs on CPU.
 - **Interface:** macOS typography, traffic-light window controls, global menu integration, system accent colors, light/dark themes, and Dock reactivation.
