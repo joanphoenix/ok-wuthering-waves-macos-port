@@ -118,6 +118,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 
 - `tests/test_cli.py`, `tests/test_headless_imports.py`, `tests/test_ui_config.py`: also cover web mode.
 - `tests/test_executor_jobs.py`: fixes a timing race that failed on macOS CI.
+- `tests/test_task_executor_next_frame.py`: releases the capture lock once `next_frame` is waiting, instead of after a fixed 50 ms that the macOS CI runner sometimes missed.
 - `tests/test_kit.py`: avoids a PySide6 crash on macOS when a temporary widget is collected.
 - `tests/test_shell.py`: allows for the hidden Windows caption buttons.
 - `tests/test_notifications.py`: Windows-only cases are skipped elsewhere.

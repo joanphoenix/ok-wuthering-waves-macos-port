@@ -1,7 +1,7 @@
 import threading
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -53,10 +53,17 @@ class TestNextFrameCaptureBusy(unittest.TestCase):
         method = LockedCapture()
         executor = self.make_executor(method)
         method.request_lock.acquire()
-        release = threading.Timer(.05, method.request_lock.release)
+        # Release the lock once next_frame is waiting for it, not after a fixed
+        # delay: thread wake-ups on the macOS CI runner can take longer than the
+        # 0.1s busy wait. The longer wait below only bounds a slow release.
+        waiting = threading.Event()
+        do_get_frame_wait = method.do_get_frame_wait
+        method.do_get_frame_wait = lambda timeout: waiting.set() or do_get_frame_wait(timeout)
+        release = threading.Thread(target=lambda: waiting.wait(5) and method.request_lock.release())
         release.start()
 
-        frame = executor.next_frame()
+        with patch('ok.task.TaskExecutor.NEXT_FRAME_BUSY_WAIT', 5):
+            frame = executor.next_frame()
 
         release.join(1)
         self.assertIsNotNone(frame)
