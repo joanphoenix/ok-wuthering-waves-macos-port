@@ -133,7 +133,7 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
                 self.info_incr('used stamina', used)
                 self.sleep(4)
                 if not can_continue:
-                    self.click_relative(0.365, 0.853, hcenter=True)
+                    self.click_relative(0.365, 0.853, hcenter=True, vcenter=True)
                     self.wait_in_team_and_world(time_out=120)
                     return stamina_spent
                 self.rechallenge_tacet()

@@ -229,7 +229,9 @@ config = {
         'default_vertical_variance': 0.002,
         'default_threshold': 0.8,
         'feature_processor': process_feature,
-        'vcenter_features': ['monthly_card', 'skip_dialog_check'],
+        # Reward-dialog features sit in a vertically centred dialog. Anchoring them to the
+        # centre is a no-op at 16:9 and keeps them findable on 16:10 Mac screens.
+        'vcenter_features': ['monthly_card', 'skip_dialog_check', 'claim_stamina_sign', 'gem_add_stamina'],
         'hcenter_features': ['monthly_card', 'suisui_forte3', 'message_dialog', 'claim_stamina_sign',
                              'skip_dialog_check', 'skip_quest_confirm', 'skip_quest_confirm_new',
                              'login_close', 'garden_confirm', 'garden_continue_game',
