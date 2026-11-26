@@ -2,7 +2,7 @@
 
 A macOS Apple Silicon port of [ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves), an image-recognition automation tool for *Wuthering Waves*, built with [ok-script](https://github.com/ok-oldking/ok-script).
 
-This fork tracks upstream [v3.8.15](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.15) and includes a vendored, locally modified **ok-script 3.0.14**. macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
+This fork tracks upstream [v3.8.15](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.15) and includes a vendored **ok-script 3.0.14**: the official release plus the macOS changes listed in [ok-script/MACOS_PATCHES.md](ok-script/MACOS_PATCHES.md). macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
 
 ## Features
 
@@ -174,7 +174,7 @@ python3 .github/scripts/sync_upstream.py --check   # show the releases this fork
 python3 .github/scripts/sync_upstream.py           # apply them, writing upstream-sync-report.md
 ```
 
-The fork shares no git history with upstream, so the script applies the diff between two upstream release tags with a 3-way merge. When the release moves the ok-script pin, it also applies the diff between the two ok-script PyPI source releases to `ok-script/`. Files that need attention are listed in the report. When resolving conflicts, keep the macOS code paths. Also add new dependencies to `run_macos.sh` and the macOS CI workflow, and guard new Win32-only imports.
+The fork shares no git history with upstream, so the script applies the diff between two upstream release tags with a 3-way merge. When the release moves the ok-script pin, it also applies the diff between the two ok-script PyPI source releases to `ok-script/`. Files that need attention are listed in the report. When resolving conflicts, keep the macOS code paths. If you change a file under `ok-script/`, list it in [MACOS_PATCHES.md](ok-script/MACOS_PATCHES.md); `sync_upstream.py --patches` and the macOS CI check that the list is complete. Also add new dependencies to `run_macos.sh` and the macOS CI workflow, and guard new Win32-only imports.
 
 ## License and credits
 

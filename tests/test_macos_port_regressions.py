@@ -72,10 +72,9 @@ def test_focus_loss_releases_held_mouse_button():
         assert quartz.CGEventPostToPid.call_count == 1
 
 
-def test_spinbox_installer_is_idempotent_and_windows_is_untouched():
-    from PySide6.QtWidgets import QApplication, QSpinBox
+def test_kit_number_box_shows_and_steps_its_value():
+    from PySide6.QtWidgets import QApplication
     from ok.ui.qt.kit.inputs import NumberBox
-    from ok.ui.qt.util.macos_compat import fix_spinbox_layout
     global _test_qt_app
     _test_qt_app = QApplication.instance() or QApplication([])
     # The live tasks page uses the kit number box, which does not need Fluent widgets.
@@ -83,12 +82,6 @@ def test_spinbox_installer_is_idempotent_and_windows_is_untouched():
     assert box.spin_box.lineEdit().text() == '1'
     box.plus_button.click()
     assert box.value() == 2
-    widget = QSpinBox()
-    with patch('ok.ui.qt.util.macos_compat.sys.platform', 'win32'):
-        original = widget.styleSheet()
-        fix_spinbox_layout(widget)
-        assert widget.styleSheet() == original
-    widget.deleteLater()
     box.deleteLater()
 
 

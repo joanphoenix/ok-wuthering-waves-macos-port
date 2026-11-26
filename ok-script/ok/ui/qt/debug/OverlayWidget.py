@@ -1,6 +1,11 @@
-import win32api
+import sys
+
+if sys.platform == "win32":
+    import win32api
+else:
+    win32api = None
 from PySide6.QtCore import Qt, QPoint, QTimer, QRectF
-from PySide6.QtGui import QPainter, QColor, QPen, QFont, QGuiApplication, QBrush, QImage
+from PySide6.QtGui import QPainter, QColor, QPen, QFont, QGuiApplication, QBrush, QImage, QCursor
 from PySide6.QtWidgets import QWidget
 
 from ok import Logger
@@ -32,13 +37,21 @@ class OverlayWidget(QWidget):
         try:
             if not self.isVisible():
                 return
-            x, y = win32api.GetCursorPos()
-            relative = self.mapFromGlobal(QPoint(x / self.scaling, y / self.scaling))
+            if win32api is not None:
+                x, y = win32api.GetCursorPos()
+                relative = self.mapFromGlobal(QPoint(x / self.scaling, y / self.scaling))
+            else:
+                # macOS port: Qt reports the cursor in logical points already.
+                relative = self.mapFromGlobal(QCursor.pos())
             if self._mouse_position != relative and relative.x() > 0 and relative.y() > 0:
                 self._mouse_position = relative
 
-            alt_down = bool(win32api.GetAsyncKeyState(0x12) & 0x8000)
-            right_down = bool(win32api.GetAsyncKeyState(0x02) & 0x8000)
+            if win32api is not None:
+                alt_down = bool(win32api.GetAsyncKeyState(0x12) & 0x8000)
+                right_down = bool(win32api.GetAsyncKeyState(0x02) & 0x8000)
+            else:
+                alt_down = bool(QGuiApplication.queryKeyboardModifiers() & Qt.KeyboardModifier.AltModifier)
+                right_down = bool(QGuiApplication.mouseButtons() & Qt.MouseButton.RightButton)
             
             self._is_alt_down = alt_down
             

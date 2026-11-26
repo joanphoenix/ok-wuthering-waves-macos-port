@@ -10,6 +10,7 @@ Usage:
     python .github/scripts/sync_upstream.py --check     # report only
     python .github/scripts/sync_upstream.py             # sync to latest
     python .github/scripts/sync_upstream.py --to v3.9.0 # sync to a tag
+    python .github/scripts/sync_upstream.py --patches   # check ok-script/MACOS_PATCHES.md
 
 The baseline lives in ``.github/upstream.json``. A Markdown report is written
 to ``--report`` (default ``upstream-sync-report.md``). Exit status: 0 when the
@@ -44,6 +45,7 @@ VERSION_FILES = (
 SDIST_EXCLUDES = ("PKG-INFO", "ok_script.egg-info")
 STABLE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 OK_SCRIPT_PIN = re.compile(r'"ok-script\[[^\]]*\]==([^"]+)"')
+PATCH_LIST = ROOT / "ok-script" / "MACOS_PATCHES.md"
 
 
 def git(*args, cwd=ROOT, check=True, input=None):
@@ -142,13 +144,13 @@ def ok_script_pin(rev):
     return match.group(1) if match else None
 
 
-def sdist_repo(old_version, new_version, workdir):
+def sdist_repo(versions, workdir):
     """Build a throwaway repo with one commit per ok-script sdist; returns its path."""
     with urllib.request.urlopen("https://pypi.org/pypi/ok-script/json") as response:
         releases = json.load(response)["releases"]
     repo = workdir / "ok-script-sdists"
     git("init", "--quiet", str(repo))
-    for version in (old_version, new_version):
+    for version in versions:
         sdist = next(f for f in releases[version] if f["packagetype"] == "sdist")
         archive = workdir / sdist["filename"]
         urllib.request.urlretrieve(sdist["url"], archive)
@@ -164,6 +166,30 @@ def sdist_repo(old_version, new_version, workdir):
             "--allow-empty", "-m", version, cwd=repo)
         git("tag", f"sdist-{version}", cwd=repo)
     return repo
+
+
+def fetch_sdists(versions, workdir):
+    repo = sdist_repo(versions, workdir)
+    git("fetch", "--quiet", str(repo), "+refs/tags/sdist-*:refs/ok-script-sdists/*")
+
+
+def unlisted_patches(version):
+    """Return ok-script files that differ from the sdist but are missing from MACOS_PATCHES.md."""
+    ref = f"refs/ok-script-sdists/{version}"
+    if git("rev-parse", "--verify", "--quiet", ref, check=False).returncode != 0:
+        with tempfile.TemporaryDirectory() as tmp:
+            fetch_sdists((version,), Path(tmp))
+    tree = git("write-tree").stdout.strip()
+    output = git("diff", "--name-only", "--no-renames", "-z", ref, f"{tree}:ok-script").stdout
+    changed = [name for name in output.split("\0")
+               if name and not name.startswith(SDIST_EXCLUDES)]
+    listed = set()
+    for line in PATCH_LIST.read_text().splitlines():
+        if line.lstrip().startswith("- "):
+            listed.update(re.findall(r"`([^`\s]+)`", line))
+    folders = tuple(entry for entry in listed if entry.endswith("/"))
+    return [name for name in changed
+            if name not in listed and name != PATCH_LIST.name and not name.startswith(folders)]
 
 
 def bump_versions(old_upstream, new_upstream, old_ok, new_ok):
@@ -202,11 +228,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="only report whether upstream is ahead")
     parser.add_argument("--to", help="upstream tag to sync to (default: newest stable tag)")
+    parser.add_argument("--patches", action="store_true",
+                        help="list changed ok-script files missing from MACOS_PATCHES.md")
     parser.add_argument("--report", default="upstream-sync-report.md")
     args = parser.parse_args()
 
     baseline = json.loads(BASELINE.read_text())
     current, current_ok = baseline["ok_wuthering_waves"], baseline["ok_script"]
+    if args.patches:
+        missing = unlisted_patches(current_ok)
+        for name in missing:
+            print(f"ok-script/{name} differs from ok-script {current_ok} but is not in {PATCH_LIST.name}")
+        if not missing:
+            print(f"every change to ok-script {current_ok} is listed in {PATCH_LIST.name}")
+        return 2 if missing else 0
     tags = fetch_upstream_tags()
     target = args.to or tags[-1]
     if target not in tags:
@@ -223,8 +258,7 @@ def main():
     target_ok = ok_script_pin(tag_ref(target)) or current_ok
     if target_ok != current_ok:
         with tempfile.TemporaryDirectory() as tmp:
-            repo = sdist_repo(current_ok, target_ok, Path(tmp))
-            git("fetch", "--quiet", str(repo), f"+refs/tags/sdist-*:refs/ok-script-sdists/*")
+            fetch_sdists((current_ok, target_ok), Path(tmp))
             rows += sync_tree(f"refs/ok-script-sdists/{current_ok}", f"refs/ok-script-sdists/{target_ok}",
                               local_prefix="ok-script/", excludes=SDIST_EXCLUDES)
     bump_versions(current, target, current_ok, target_ok)

@@ -24,3 +24,5 @@ jobs:
         run: python -m pytest -q tests/test_macos_launcher.py tests/test_macos_port_regressions.py
       - name: Test the vendored ok-script suite
         run: python -m pytest -q ok-script/tests
+      - name: Check every ok-script change is in MACOS_PATCHES.md
+        run: python .github/scripts/sync_upstream.py --patches

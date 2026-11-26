@@ -40,7 +40,6 @@ NV_DRS_CLASSIC_SHARPENING_ENABLE_ID = 0x00598928  # Sharpening Filter - Enabled
 NV_DRS_IMAGE_SHARPENING_IDS = (NV_DRS_CLASSIC_SHARPENING_ENABLE_ID,)
 NV_DRS_RTX_DYNAMIC_VIBRANCE_ENABLE_ID = 0x00980880
 NV_DRS_RTX_HDR_ENABLE_ID = 0x00DD48FB  # RTX HDR - Enable
-NV_DRS_RTX_HDR_DRIVER_FLAGS_ID = 0x00432F84  # RTX HDR - Driver Flags (non-zero => driver HDR path)
 
 NVAPI_DRS_GET_CURRENT_GLOBAL_PROFILE = 0x617BFF9F
 NVAPI_DRS_FIND_PROFILE_BY_NAME = 0x7E4A9A0B
@@ -422,6 +421,8 @@ def _auto_hdr_flags(settings) -> Optional[int]:
             except ValueError:
                 return None
             # Low bit: allow Auto HDR. Bit 0x1000: explicit per-game override.
+            # Observed on Windows build 26300: global off + 2097 => off;
+            # toggling the game's Auto HDR on changes 2097 to 6193 (0x1831).
             return flags if flags >= 0 else None
     return None
 
@@ -454,7 +455,6 @@ def is_nvidia_rtx_dynamic_vibrance_enabled() -> Optional[GpuDriverPostProcessing
 def is_nvidia_rtx_hdr_enabled(target_exe_path: Optional[str] = None) -> Optional[GpuDriverPostProcessing]:
     # A configured NVIDIA App preference is not proof that Alt+F3 filters are
     # active. In particular, nvdrsdb can contain [1, 1] while slot 0 is selected.
-    # Off Windows the profile check returns unknown and this stays a no-op.
     profile_active, detail = _nvidia_filter_profile_in_use_state(target_exe_path)
     if profile_active is not True:
         state = "False" if profile_active is False else "Unknown"
@@ -471,6 +471,8 @@ def is_nvidia_rtx_hdr_enabled(target_exe_path: Optional[str] = None) -> Optional
         _log_feature_enabled("NVIDIA RTX HDR", hit)
         return hit
 
+    # Driver flags and unscoped raw database records do not establish that the
+    # game's RTX HDR filter is enabled.
     logger.info("NVIDIA RTX HDR enabled: Unknown (RTX HDR profile setting unavailable)")
     return None
 
@@ -759,6 +761,14 @@ def _nvidia_filter_profile_slot_from_text(
     for line_number, line in enumerate(text.splitlines(), 1):
         normalized_line = _normalize_windows_path(line)
         has_target = bool(target and target in normalized_line)
+        # Overlay game metadata commonly uses only drsName, while procPath is
+        # JSON escaped. Do not substring-match arbitrary executable names.
+        game_name = re.search(r'"(?:drsName|procPath)"\s*:\s*"([^"\r\n]+)"', line, re.IGNORECASE)
+        if game_name and target:
+            name = _normalize_windows_path(game_name.group(1))
+            has_target = name == target or ("/" not in name and name == ntpath.basename(target))
+            if not has_target:
+                last_target_line = None
         if has_target:
             last_target_line = line_number
 
@@ -805,7 +815,7 @@ def _nvidia_filter_profile_slot_from_line(line: str) -> Optional[int]:
 
 
 def _normalize_windows_path(value: Optional[str]) -> str:
-    return (value or "").replace("\\", "/").lower()
+    return re.sub(r"[\\/]+", "/", value or "").lower()
 
 
 def _detect_nvidia_drs_flags(
