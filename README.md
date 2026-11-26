@@ -2,7 +2,7 @@
 
 A macOS Apple Silicon port of [ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves), an image-recognition automation tool for *Wuthering Waves*, built with [ok-script](https://github.com/ok-oldking/ok-script).
 
-This fork tracks upstream [v3.8.15](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.15) and includes a vendored **ok-script 3.0.14**: the official release plus the macOS changes listed in [ok-script/MACOS_PATCHES.md](ok-script/MACOS_PATCHES.md). macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
+This fork tracks upstream [v3.8.16](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.16) and includes a vendored **ok-script 3.0.15b1**: the official release plus the macOS changes listed in [ok-script/MACOS_PATCHES.md](ok-script/MACOS_PATCHES.md). macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
 
 ## Features
 

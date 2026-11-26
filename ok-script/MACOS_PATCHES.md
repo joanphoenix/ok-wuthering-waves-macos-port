@@ -46,6 +46,7 @@ Upstream ok-script 3.0 removed its web interface. This port keeps it for `./run_
 
 These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or similar at import time, or call Windows APIs unconditionally. The patch imports them only on Windows and skips or stubs the call elsewhere.
 
+- `ok/child_session/host.py`: the Windows child-session feature is off on macOS, but the Qt UI still imports this module.
 - `ok/core/screenshot.py`
 - `ok/device/capture_methods/bitblt_utils.py`
 - `ok/device/capture_methods/browser.py`

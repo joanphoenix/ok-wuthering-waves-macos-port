@@ -50,6 +50,7 @@ NEEDS_ADBUTILS_MODULES = (
 # off Windows. They cover the Win32 PostMessage path, which the macOS port
 # replaces with Quartz input.
 WINDOWS_ONLY_MODULES = (
+    "test_child_session.py",
     "test_mouse_buttons.py",
     "test_post_message_activation.py",
     "test_windows_graphics_hdr.py",
