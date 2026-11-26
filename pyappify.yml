@@ -22,3 +22,11 @@ profiles:
     requirements: "requirements.txt"
 
 
+
+  # The macOS port. run_macos.sh selects it with PYAPPIFY_APP_PROFILE, so the
+  # in-app updater installs the Mac packages. pip_args is set to keep the
+  # first profile's --no-deps from being inherited: requirements-macos.txt
+  # isn't a full pin list.
+  - name: "macOS"
+    requirements: "requirements-macos.txt"
+    pip_args: "--upgrade-strategy only-if-needed"

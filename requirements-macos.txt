@@ -1,0 +1,25 @@
+# Python packages for the macOS port.
+#
+# run_macos.sh installs this file, and so does the in-app updater (the
+# "macOS" profile in pyappify.yml) whenever an update changes it. The
+# Windows requirements.txt can't be installed on a Mac: it pins pywin32 and
+# other Windows-only wheels.
+#
+# The updater only reinstalls when this file changes, so edit it whenever
+# ok-script/pyproject.toml's dependencies change. The upstream sync bumps
+# the build version below, which covers ok-script updates.
+# ok-script build: 3.0.15b1+macos.1
+-e ./ok-script[default,ocr,qt]
+pyobjc-framework-Quartz
+pyobjc-framework-Cocoa
+pyobjc-framework-ApplicationServices
+pyobjc-framework-ScreenCaptureKit
+pyobjc-framework-CoreMedia
+pyobjc-framework-libdispatch
+onnxruntime
+opencv-python
+polib
+OpenCC==1.2.0
+mcp==2.3.0
+dulwich==1.2.21
+pyappify[standalone]>=1.0.20

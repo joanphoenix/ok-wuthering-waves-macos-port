@@ -149,7 +149,9 @@ Early shell or dependency-installation errors may appear only in the terminal. I
 
 ## Updating and development
 
-Before updating, stop automation and close the tool. Review local changes with `git status`, then update a clean checkout:
+The app can update itself from a git clone. Open **About**, choose **Check for updates**, pick a version and choose **Update**. The fork has no release tags, so versions are the recent commits on `main` (and, with **Check Test Version**, branches and open pull requests). The updater closes the app, checks out that commit, installs `requirements-macos.txt` if it changed, and starts the app again. If anything fails it rolls back to the previous commit. Its log is `.git/pyappify/update.log`. Updates are refused while tracked files have local changes.
+
+To update by hand instead, stop automation and close the tool. Review local changes with `git status`, then update a clean checkout:
 
 ```bash
 git pull --ff-only

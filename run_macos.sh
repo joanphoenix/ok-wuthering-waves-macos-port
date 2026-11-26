@@ -24,16 +24,19 @@ if [[ "${1:-}" == "--web" ]]; then
     EXTRAS="$EXTRAS,web"
 fi
 INSTALL_STAMP="$SCRIPT_DIR/.venv/.macos-dependencies"
-INSTALL_KEY="$EXTRAS:$(shasum -a 256 "$SCRIPT_DIR/run_macos.sh" "$SCRIPT_DIR/ok-script/pyproject.toml" "$SCRIPT_DIR/pyproject.toml" | shasum -a 256)"
+INSTALL_KEY="$EXTRAS:$(shasum -a 256 "$SCRIPT_DIR/run_macos.sh" "$SCRIPT_DIR/requirements-macos.txt" "$SCRIPT_DIR/ok-script/pyproject.toml" "$SCRIPT_DIR/pyproject.toml" | shasum -a 256)"
 if [[ ! -f "$INSTALL_STAMP" ]] || [[ "$(cat "$INSTALL_STAMP")" != "$INSTALL_KEY" ]]; then
     "$PYTHON_BIN" -m pip install --upgrade pip
-    OK_SCRIPT_BUILD_VERSION=3.0.15b1+macos.1 "$PYTHON_BIN" -m pip install -e "$SCRIPT_DIR/ok-script[$EXTRAS]" \
-        pyobjc-framework-Quartz pyobjc-framework-Cocoa pyobjc-framework-ApplicationServices \
-        pyobjc-framework-ScreenCaptureKit pyobjc-framework-CoreMedia pyobjc-framework-libdispatch \
-        onnxruntime opencv-python polib 'OpenCC==1.2.0' 'mcp==2.3.0' 'dulwich==1.2.21' 'pyappify[standalone]>=1.0.20'
+    # requirements-macos.txt installs ok-script with the default extras; pip
+    # merges in the extras named here, such as web.
+    OK_SCRIPT_BUILD_VERSION=3.0.15b1+macos.1 "$PYTHON_BIN" -m pip install \
+        -r "$SCRIPT_DIR/requirements-macos.txt" -e "$SCRIPT_DIR/ok-script[$EXTRAS]"
     print -r -- "$INSTALL_KEY" > "$INSTALL_STAMP"
 fi
 
+# Selects the macOS profile in pyappify.yml, so in-app updates install
+# requirements-macos.txt instead of the Windows requirements.txt.
+export PYAPPIFY_APP_PROFILE=macOS
 export PYTHONPATH="$SCRIPT_DIR/ok-script:$SCRIPT_DIR:${PYTHONPATH:-}"
 
 case "${1:-}" in

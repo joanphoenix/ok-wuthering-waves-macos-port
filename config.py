@@ -3,6 +3,11 @@ import re
 import sys
 from pathlib import Path
 
+if sys.platform == 'darwin':
+    # pyappify.yml's macOS profile: in-app updates install requirements-macos.txt,
+    # not the Windows requirements.txt. Set before pyappify is imported.
+    os.environ.setdefault('PYAPPIFY_APP_PROFILE', 'macOS')
+
 from ok import Box, ConfigOption, Icon
 from ok.util.GlobalConfig import create_basic_options
 from src.game_launcher import get_game_launch_arguments

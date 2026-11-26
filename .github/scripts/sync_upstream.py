@@ -39,6 +39,7 @@ MAC_BUILD_SUFFIX = "+macos.1"
 # workflow changes with Actions' default token.
 VERSION_FILES = (
     "run_macos.sh",
+    "requirements-macos.txt",
     "ok-script/setup.py",
 )
 # sdist packaging metadata that is not part of the vendored source tree.
