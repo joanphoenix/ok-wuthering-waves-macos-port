@@ -18,7 +18,8 @@ These files don't exist upstream.
 
 ### macOS platform layer
 
-- `ok/device/capture_methods/macos_quartz.py`: captures the game window with CoreGraphics (Quartz).
+- `ok/device/capture_methods/macos_screencapturekit.py`: streams the game window with ScreenCaptureKit on macOS 14 and later. This is the default.
+- `ok/device/capture_methods/macos_quartz.py`: captures the game window with CoreGraphics (Quartz). This is the fallback, and the default on macOS 13.
 - `ok/device/interaction_methods/macos_quartz.py`: sends keyboard and mouse input as Quartz events, and reports a missing Accessibility permission instead of posting silently.
 - `ok/util/window_macos.py`: finds the game window and tracks its position, size and focus. Focus is read through the Process Manager, because `NSWorkspace` goes stale without a Cocoa run loop, and activation falls back to System Events.
 
@@ -34,6 +35,7 @@ Upstream ok-script 3.0 removed its web interface. This port keeps it for `./run_
 
 - `tests/conftest.py`: skips Windows-only test modules on other platforms.
 - `tests/qt_helpers.py`: shared Qt test helpers.
+- `tests/test_macos_screencapturekit.py`: ScreenCaptureKit capture and its fallback.
 - `tests/test_pr2_regressions.py`, `tests/test_runtime_reliability.py`: regression tests for port fixes.
 - `pytest.ini`, `.gitignore`.
 - `MACOS_PATCHES.md`: this page.
@@ -50,7 +52,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 - `ok/device/capture_methods/desktop_duplication.py`
 - `ok/device/capture_methods/hwnd_window.py`: also uses `window_macos` to find the game window.
 - `ok/device/capture_methods/types.py`
-- `ok/device/capture_methods/update.py`
+- `ok/device/capture_methods/update.py`: also picks the macOS capture method.
 - `ok/device/capture_methods/windows_graphics.py`
 - `ok/device/interaction_methods/foreground_post_message.py`
 - `ok/device/interaction_methods/genshin.py`
@@ -108,7 +110,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 
 ### Packaging
 
-- `pyproject.toml`: Windows-only dependencies are limited to Windows, PySide6 and pyobjc (including Vision, for the Korean Abyss prompt) are added for macOS, plus the `web` extra and web package data.
+- `pyproject.toml`: Windows-only dependencies are limited to Windows, PySide6 and the pyobjc frameworks (including ScreenCaptureKit, and Vision for the Korean Abyss prompt) are added for macOS, plus the `web` extra and web package data.
 - `setup.py`: the `+macos.1` version.
 - `README.md`: notes on the port.
 
@@ -116,6 +118,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 
 - `tests/test_cli.py`, `tests/test_headless_imports.py`, `tests/test_ui_config.py`: also cover web mode.
 - `tests/test_executor_jobs.py`: fixes a timing race that failed on macOS CI.
+- `tests/test_task_executor_next_frame.py`: releases the capture lock once `next_frame` is waiting, instead of after a fixed 50 ms that the macOS CI runner sometimes missed.
 - `tests/test_kit.py`: avoids a PySide6 crash on macOS when a temporary widget is collected.
 - `tests/test_shell.py`: allows for the hidden Windows caption buttons.
 - `tests/test_notifications.py`: Windows-only cases are skipped elsewhere.
