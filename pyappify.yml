@@ -5,6 +5,17 @@ website: "http://ok-script.com/ok-ww"
 keep_releases: 30
 
 profiles:
+  # macOS port: listed first because an app started without the launcher (a
+  # git clone run by run_macos.sh) updates with the first profile unless
+  # PYAPPIFY_APP_PROFILE names another. requirements.txt is Windows-only.
+  - name: "macOS"
+    git_url: "https://github.com/joanphoenix/ok-wuthering-waves-macos-port.git"
+    main_script: "main.py"
+    requires_python: "3.12"
+    requirements: "requirements-macos.txt"
+    # Not empty, so it doesn't inherit another profile's --no-deps.
+    pip_args: "--upgrade-strategy only-if-needed"
+
   - name: "China"
     git_url: "https://cnb.cool/ok-oldking/ok-ww-update2.git"
     admin: true

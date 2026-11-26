@@ -1,0 +1,21 @@
+# Python packages for the macOS port, for ok-script 3.0.15b1+macos.1.
+#
+# run_macos.sh installs these on first launch and whenever this file changes.
+# The in-app updater installs them too: the "macOS" profile in pyappify.yml
+# points at this file, because requirements.txt is the Windows lock file and
+# pip can't install pywin32 on a Mac. Paths are relative to the repository
+# root, where both run pip.
+-e ./ok-script[default,ocr,qt]
+pyobjc-framework-Quartz
+pyobjc-framework-Cocoa
+pyobjc-framework-ApplicationServices
+pyobjc-framework-ScreenCaptureKit
+pyobjc-framework-CoreMedia
+pyobjc-framework-libdispatch
+onnxruntime
+opencv-python
+polib
+OpenCC==1.2.0
+mcp==2.3.0
+dulwich==1.2.21
+pyappify[standalone]>=1.0.21
