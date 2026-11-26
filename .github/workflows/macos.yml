@@ -12,7 +12,7 @@ jobs:
     env:
       QT_QPA_PLATFORM: offscreen
       PYTHONPATH: ok-script:.
-      OK_SCRIPT_BUILD_VERSION: 3.0.5b9+macos.1
+      OK_SCRIPT_BUILD_VERSION: 3.0.7+macos.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

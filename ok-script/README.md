@@ -9,11 +9,58 @@
 
 [简体中文](README.md) | [English](README_en.md)
 
-[![Discord](https://img.shields.io/discord/296598043787132928?color=5865f2&label=%20Discord)](https://discord.gg/vVyCatEBgA)
+说出你想自动化的事。代理通过 MCP 观察 Windows 应用、游戏或安卓设备，编写 Python 任务，在真实目标上运行并修复失败。ok-script 把完成的任务连同桌面 GUI 打包成可分发的 Windows 安装包。打包后的程序在本地独立完成截图、识别和输入，无需代理保持连接，运行时不再消耗 token。
 
-基于计算机视觉的 Python 自动化框架，面向 Windows 应用、Windows 游戏、安卓模拟器和 ADB 设备。
+ok-script 支持 Windows 应用和游戏、安卓模拟器及 ADB 设备，提供模板匹配、OCR、目标支持时的后台输入、桌面界面和任务打包。鸣潮的 okww、异环的 oknte、二重螺旋的 okdna、明日方舟：终末地的 okef 等热门自动化项目都基于 ok-script 开发。
 
-ok-script 提供 UI、截图与输入、设备控制、OCR、模板匹配、调试浮层、自动化测试、打包和增量更新能力。它使用 COCO 格式管理模板素材，并支持分辨率自适应与多语言界面。
+[MCP 快速开始](docs/quick_start/README.md) · [编程代理提示词](docs/agent-prompts.md) · [MCP 连接说明（英文）](docs/mcp.md) · [▶ 视频教程（B 站）](https://www.bilibili.com/video/BV1FEss6eEa1/)
+
+## 两句提示词，做出一个扫雷程序
+
+![ok-script 生成的程序运行“高级扫雷直到胜利”任务，几秒内通关高级扫雷](docs/ok_py/minesweeper_demo.gif)
+
+[▶ 视频教程：ok-script MCP 开发 Python 脚本教程（B 站，3 分半）](https://www.bilibili.com/video/BV1FEss6eEa1/)
+
+在 Codex（GPT 6.1 Sol，推理强度中等）里只说了两句话：
+
+1. 在当前目录安装并配置 ok-script，用它来自动化当前打开的扫雷。
+2. 用 ok-script 的 MCP 写一个任务，自动玩扫雷高级难度，直到胜利。
+
+代理通过 MCP 截图识别棋盘，写出约束推理和概率选格的任务，在真实的扫雷窗口上反复运行、查看日志、修复问题，并把任务注册进 ok-script 桌面程序。上图就是这个生成的程序：选中任务，点击“运行任务”，不需要代理。
+
+| 指标 | 结果 |
+| --- | --- |
+| Codex 工作时间 | 约 13 分钟（两次对话） |
+| 模型花费 | ChatGPT Plus 每周额度约 2%（约 ¥0.71） |
+| 连续运行 10 次 | 10/10 通关高级扫雷，平均 15.7 秒，最快 6 秒 |
+| 之后每次运行 | 0 token，不调用模型 |
+
+## 可以这样告诉编程代理
+
+首次安装环境：
+
+> 在当前项目中安装 ok-script 并配置运行环境。先读取 https://raw.githubusercontent.com/ok-oldking/ok-script/master/docs/agent-setup.md ，按照其中的安装技能操作，保留项目现有的依赖约束。
+
+[代理安装指南（英文）](docs/agent-setup.md)提供可添加到应用项目 `AGENTS.md` 的简短指令，让后续安装请求也能找到这些技能，无需先安装包或启动 MCP。
+
+开发自动化任务：
+
+> 连接这个项目的 ok-script MCP 服务，读取开发技能。检查已安装的截图、匹配和输入 API，给出准确签名和源码位置。开发可复用 Python 任务：打开设置、启用“显示详情”、保存并验证结果。每次尝试前恢复并验证起始界面，测试重复运行，代码保存到项目中。使用 ok-script API 和 MCP，不使用 Computer Use 工具。最后给出不依赖代理或大模型调用的准确运行命令。
+
+修复已有任务：
+
+> 连接这个项目的 ok-script MCP 服务，读取 reload-tasks 技能。用 list_tasks 找到出错任务的源码，修改该文件，按任务 ID 重载并等待重载成功。恢复并验证起始界面，重复运行已注册的实现，并给出运行日志和截图中的证据。
+
+## MCP 开发流程
+
+代理用自己的工具编辑文件、读取日志；MCP 让它直接操作正在运行的应用：
+
+1. **学习**：`list_skills` 和 `get_skill` 返回当前安装版本自带的开发、模板、测试和重载流程；代理从已安装包中读取准确的 Python 签名。
+2. **观察**：`screenshot` 保存已配置窗口或设备的当前画面。
+3. **运行**：`run_task` 在真实目标上执行 Python 任务文件。每次尝试先恢复并验证起始状态，再由 `run()` 执行并断言自动化结果。
+4. **检查**：每次尝试写入 `logs/mcp/<run_id>/run.log`、`status.json` 和任务截图。`get_run_status` 报告进度和错误，`stop_task` 用于取消。
+5. **修复**：`list_tasks` 返回已注册任务的源码路径；修改后用 `reload_tasks` 在运行中的进程里替换。无法重置时用 `exit_process` 结束运行时。
+6. **交付**：在项目配置中注册任务，通过 GUI 或 `python -m ok run_task` 运行，并用 [PyAppify](https://github.com/ok-oldking/pyappify) 打包成 Windows 安装包。
 
 ## 特性
 
@@ -83,9 +130,10 @@ python -m pip install --editable . --group default --group dev
 
 ## 使用 ok-script 的项目
 
-- [ok-script 应用模板](https://github.com/ok-oldking/ok-script-app)
-- [鸣潮](https://github.com/ok-oldking/ok-wuthering-waves)
-- [原神](https://github.com/ok-oldking/ok-genshin-impact)（停止维护，后台过剧情仍可用）
+- [鸣潮 · okww](https://github.com/ok-oldking/ok-wuthering-waves)
+- [异环 · oknte](https://github.com/BnanZ0/ok-nte)
+- [二重螺旋 · okdna](https://github.com/BnanZ0/ok-duet-night-abyss)
+- [明日方舟：终末地 · okef](https://github.com/AliceJump/ok-end-field)
 - [少女前线 2](https://github.com/ok-oldking/ok-gf2)
 - [崩坏：星穹铁道](https://github.com/Shasnow/ok-starrailassistant)
 - [星痕共鸣](https://github.com/Sanheiii/ok-star-resonance)
@@ -93,12 +141,22 @@ python -m pip install --editable . --group default --group dev
 - [卡厄思梦境](https://github.com/baoxin1100/ok-kes)
 - [阴阳师](https://github.com/YunLiuZ/ok-Onmyoji)
 - [白荆回廊](https://github.com/ok-oldking/ok-baijing)（停止维护）
-- [明日方舟：终末地](https://github.com/AliceJump/ok-end-field)
-- [异环](https://github.com/BnanZ0/ok-nte)
+
+## 开发 ok-script
+
+在本仓库中测试界面改动时，可以用 [main.py](main.py) 中的演示配置直接从源码启动 GUI：
+
+```powershell
+.\.venv\Scripts\python.exe main.py
+```
+
+它以记事本为目标窗口，无需游戏，并注册了一个演示一次性任务和一个触发任务，让任务、计划任务和模板页面都有内容。设置和日志保存在已被 git 忽略的 `configs/` 和 `logs/` 目录中。需要测试其他选项时，修改 `main.py` 中的 `config` 字典或演示任务即可。
 
 ## 社区与发布
 
 - 开发者 QQ 群：938132715
+- [Discord](https://discord.gg/vVyCatEBgA)
+- [B 站视频教程](https://www.bilibili.com/video/BV1FEss6eEa1/)
 - [PyPI](https://pypi.org/project/ok-script/)
 - [GitHub](https://github.com/ok-oldking/ok-script)
 

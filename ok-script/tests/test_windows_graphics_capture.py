@@ -2,7 +2,7 @@ import unittest
 import threading
 import time
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import numpy as np
 
@@ -456,6 +456,24 @@ class TestWindowsGraphicsCaptureGetFrame(unittest.TestCase):
 
         self.assertFalse(producer.is_alive())
         self.assertEqual([2, 3], [int(result[0, 0, 0]) for result in results])
+
+
+class TestBrowserCaptureBusyWait(unittest.TestCase):
+    def test_waiting_capture_is_forwarded_to_browser_wgc(self):
+        from ok.device.capture_methods.browser import BrowserCaptureMethod
+        method = object.__new__(BrowserCaptureMethod)
+        method.exit_event = threading.Event()
+        method.page = Mock()
+        method.page.is_closed.return_value = False
+        method.wgc_capture = Mock()
+        method.wgc_capture.do_get_frame_wait.return_value = 'frame'
+        method.update_window_geometry = Mock(return_value=True)
+
+        self.assertEqual('frame', method.do_get_frame_wait(2))
+        self.assertEqual('frame', method.do_get_frame())
+
+        self.assertEqual([call(2), call(0)], method.wgc_capture.do_get_frame_wait.call_args_list)
+
 
 if __name__ == '__main__':
     unittest.main()

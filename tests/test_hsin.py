@@ -175,6 +175,7 @@ class HsinRotationTest(unittest.TestCase):
         checker.check_health_bar = lambda: False
         checker.target_enemy_time_out = 3
         checker.last_in_realm_not_combat = 0
+        checker.is_browser = lambda: False
 
         def retarget(wait=True, **kwargs):
             retargets.append(self.clock.now)
