@@ -458,8 +458,8 @@ class BaseWWTask(BaseTask):
             btn = self.click_dialog_left_button()
         if self.wait_feature('gem_add_stamina', horizontal_variance=0.4, vertical_variance=0.05,
                              time_out=2, settle_time=0.5):  # 看是否需要使用备用体力
-            self.click_relative(0.70, 0.71, hcenter=True, after_sleep=1)  # 点击确认
-            self.click_relative(0.70, 0.71, hcenter=True, after_sleep=1)
+            self.click_relative(0.70, 0.71, hcenter=True, vcenter=True, after_sleep=1)  # 点击确认
+            self.click_relative(0.70, 0.71, hcenter=True, vcenter=True, after_sleep=1)
             self.back(after_sleep=1)
             self.click(btn, after_sleep=1)
 

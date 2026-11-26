@@ -97,7 +97,7 @@ class TestTacetDeathReentry(unittest.TestCase):
         self.assertEqual([0], task.teleports)
         self.assertEqual(2, len(task.combat_calls))
         task.click.assert_called_once_with(rechallenge_button, after_sleep=0.2)
-        task.click_relative.assert_called_once_with(0.365, 0.853, hcenter=True)
+        task.click_relative.assert_called_once_with(0.365, 0.853, hcenter=True, vcenter=True)
 
     def test_resumes_active_arena_when_combat_stopped_before_reward(self):
         task = self.make_task(deaths=0)
