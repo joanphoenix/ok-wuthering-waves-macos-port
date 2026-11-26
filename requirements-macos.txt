@@ -6,16 +6,8 @@
 # pip can't install pywin32 on a Mac. Paths are relative to the repository
 # root, where both run pip.
 -e ./ok-script[default,ocr,qt]
-pyobjc-framework-Quartz
-pyobjc-framework-Cocoa
-pyobjc-framework-ApplicationServices
-pyobjc-framework-ScreenCaptureKit
-pyobjc-framework-CoreMedia
-pyobjc-framework-libdispatch
 onnxruntime
 opencv-python
 polib
-OpenCC==1.2.0
-mcp==2.3.0
 dulwich==1.2.21
 pyappify[standalone]>=1.0.21

@@ -96,7 +96,7 @@ jobs:
           ### Before merging
 
           - Resolve any conflict markers, keeping the macOS code paths.
-          - Check new dependencies in `pyproject.toml` and add them to `run_macos.sh` and `.github/workflows/macos.yml`.
+          - Check new dependencies in `pyproject.toml` and update `requirements-macos.txt` or the vendored package metadata for macOS.
           - Look for new Win32-only imports (`win32api`, `win32gui`, `win32con`, `ctypes.windll`) and guard them.
           - Run the macOS test suites, and try any new tasks in the game.
 

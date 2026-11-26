@@ -246,7 +246,7 @@ config = {
                            re.compile('CNativeLoginDlg'), 'Static', 'ComboBox', 'ComboLBox', 'Button'
                            ],
         'calculate_pc_exe_path': calculate_pc_exe_path,
-        'launch_arguments': get_game_launch_arguments,
+        'launch_arguments': get_game_launch_arguments if sys.platform == 'win32' else None,
         'exe': ['Client-Mac-Shipping', 'Client-Win64-Shipping.exe'] if sys.platform == 'darwin' else 'Client-Win64-Shipping.exe',
         'hwnd_class': None if sys.platform == 'darwin' else 'UnrealWindow',
         'interaction': ['PostMessage', 'Pynput'],

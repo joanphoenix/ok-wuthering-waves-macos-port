@@ -151,7 +151,8 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
             self.walk_to_treasure()
 
     def find_rechallenge_button(self):
-        buttons = self.ocr(0.54, 0.81, 0.72, 0.90, match=RECHALLENGE_TEXT)
+        box = self.box_of_screen(0.54, 0.81, 0.72, 0.90, hcenter=True, vcenter=True)
+        buttons = self.ocr(box=box, match=RECHALLENGE_TEXT)
         return buttons[0] if buttons else None
 
     def rechallenge_tacet(self):
@@ -160,7 +161,7 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
             self.click(button, after_sleep=0.2)
         else:
             # Keep the existing button position for game languages outside the OCR patterns.
-            self.click_relative(0.640, 0.851, hcenter=True, after_sleep=0.2)
+            self.click_relative(0.640, 0.851, hcenter=True, vcenter=True, after_sleep=0.2)
         self.wait_click_skip_dialog_confirm()
 
     def not_enough_stamina(self, back=True):

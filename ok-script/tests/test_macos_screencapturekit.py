@@ -25,6 +25,7 @@ class FakeStream:
         self.stopped = False
         self.sample = None
         self.seq = 0
+        self.sample_at = 0.0
         FakeStream.instances.append(self)
 
     def start(self):
@@ -41,11 +42,12 @@ class FakeStream:
         self.stopped = True
 
     def latest(self, after_seq, timeout):
-        return self.sample, self.seq
+        return self.sample, self.seq, self.sample_at
 
     def push(self, frame):
         self.sample = frame
         self.seq += 1
+        self.sample_at = sck.time.monotonic()
 
 
 @pytest.fixture
@@ -124,6 +126,18 @@ def test_falls_back_when_no_frames_arrive(method):
     assert FakeStream.instances[0].stopped
 
 
+def test_stale_stream_uses_quartz_until_a_fresh_frame_arrives(method):
+    method.do_get_frame()
+    stream = FakeStream.instances[0]
+    stream.push(bgr(748, 1280))
+    assert method.do_get_frame().shape == (720, 1280, 3)
+    stream.sample_at -= sck.MAX_FRAME_AGE + 1
+    assert method.do_get_frame() == "quartz"
+    stream.push(bgr(748, 1280))
+    assert method.do_get_frame().shape == (720, 1280, 3)
+    assert not stream.stopped
+
+
 def test_close_stops_the_stream(method):
     method.do_get_frame()
     method.close()
@@ -180,10 +194,10 @@ def test_window_stream_keeps_only_complete_frames():
     with patch.multiple(sck, ScreenCaptureKit=kit, CoreMedia=media):
         media.CMSampleBufferGetSampleAttachmentsArray.return_value = [{"status": 1}]  # idle
         stream.on_sample("idle")
-        assert stream.latest(0, 0) == (None, 0)
+        assert stream.latest(0, 0) == (None, 0, 0.0)
         media.CMSampleBufferGetSampleAttachmentsArray.return_value = [{"status": 0}]
         stream.on_sample("complete")
-        assert stream.latest(0, 0) == ("complete", 1)
+        assert stream.latest(0, 0) == ("complete", 1, stream._sample_at)
 
 
 def test_window_stream_wait_wakes_on_a_new_frame():
@@ -194,9 +208,10 @@ def test_window_stream_wait_wakes_on_a_new_frame():
     with patch.multiple(sck, ScreenCaptureKit=kit, CoreMedia=media):
         timer = threading.Timer(0.01, stream.on_sample, args=("frame",))
         timer.start()
-        sample, seq = stream.latest(0, 5)
+        sample, seq, sample_at = stream.latest(0, 5)
         timer.join()
     assert (sample, seq) == ("frame", 1)
+    assert 0 < sample_at <= sck.time.monotonic()
 
 
 # These run against the real pyobjc bindings on the macOS CI runner. The

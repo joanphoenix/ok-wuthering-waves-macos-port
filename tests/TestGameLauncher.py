@@ -1,6 +1,7 @@
 import base64
 import gettext
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,10 +27,10 @@ class TestGameLauncher(unittest.TestCase):
         data = json.dumps(state).encode('utf-8')
         self.state_path.write_bytes(base64.b64encode(bytes(value ^ 0x63 for value in data)))
 
-    def test_windows_config_registers_launch_arguments_callback(self):
+    def test_windows_only_launch_arguments_callback(self):
         self.assertIs(
             config.config['windows']['launch_arguments'],
-            game_launcher.get_game_launch_arguments,
+            game_launcher.get_game_launch_arguments if sys.platform == 'win32' else None,
         )
 
     def test_game_package_option_is_removed(self):

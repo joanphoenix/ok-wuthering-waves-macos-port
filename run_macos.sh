@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
 set -e
+set -o pipefail
 
 SCRIPT_DIR="${0:A:h}"
 cd "$SCRIPT_DIR"
@@ -16,6 +17,10 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
     "$SETUP_PYTHON" -m venv "$SCRIPT_DIR/.venv"
 fi
 "$PYTHON_BIN" -c 'import sys; sys.exit(0 if sys.version_info[:2] == (3, 12) else "Recreate .venv with Python 3.12")'
+if [[ "${1:-}" != "--prepare-only" ]]; then
+    exec "$PYTHON_BIN" "$SCRIPT_DIR/macos_launch.py" "$@"
+fi
+shift
 
 # Publish the fingerprint only after installation succeeds. Interrupted installs
 # retry on the next launch; dependency and launcher changes invalidate it.
@@ -24,7 +29,8 @@ if [[ "${1:-}" == "--web" ]]; then
     EXTRAS="$EXTRAS,web"
 fi
 INSTALL_STAMP="$SCRIPT_DIR/.venv/.macos-dependencies"
-INSTALL_KEY="$EXTRAS:$(shasum -a 256 "$SCRIPT_DIR/run_macos.sh" "$SCRIPT_DIR/requirements-macos.txt" "$SCRIPT_DIR/ok-script/pyproject.toml" "$SCRIPT_DIR/pyproject.toml" | shasum -a 256)"
+INSTALL_KEY="$EXTRAS:$(shasum -a 256 run_macos.sh requirements-macos.txt \
+    ok-script/setup.py ok-script/pyproject.toml pyproject.toml | shasum -a 256)"
 export OK_SCRIPT_BUILD_VERSION=3.0.15b1+macos.1
 if [[ ! -f "$INSTALL_STAMP" ]] || [[ "$(cat "$INSTALL_STAMP")" != "$INSTALL_KEY" ]]; then
     "$PYTHON_BIN" -m pip install --upgrade pip
@@ -35,25 +41,3 @@ if [[ ! -f "$INSTALL_STAMP" ]] || [[ "$(cat "$INSTALL_STAMP")" != "$INSTALL_KEY"
     fi
     print -r -- "$INSTALL_KEY" > "$INSTALL_STAMP"
 fi
-
-export PYTHONPATH="$SCRIPT_DIR/ok-script:$SCRIPT_DIR:${PYTHONPATH:-}"
-# The in-app updater picks the dependency list by this profile name.
-export PYAPPIFY_APP_PROFILE=macOS
-
-case "${1:-}" in
-    --web)
-        shift
-        exec "$PYTHON_BIN" main_web.py "$@"
-        ;;
-    --debug)
-        shift
-        exec "$PYTHON_BIN" main_debug.py "$@"
-        ;;
-    --updater)
-        shift
-        exec "$PYTHON_BIN" main_updater.py "$@"
-        ;;
-    *)
-        exec "$PYTHON_BIN" main.py "$@"
-        ;;
-esac

@@ -1,6 +1,6 @@
 # macOS patches to ok-script
 
-This folder is the official **ok-script 3.0.14** source release from PyPI (`ok_script-3.0.14.tar.gz`), with the changes below on top. Every file that differs from that release is listed here. Anything not listed is identical to upstream, so a future ok-script update can be applied as a plain diff between two releases.
+This folder starts with the official ok-script source release from PyPI named in [the sync baseline](../.github/upstream.json) and includes the changes below. Every file that differs from that release is listed here. Anything not listed is identical to upstream, so a future ok-script update can be applied as a plain diff between two releases.
 
 To check that this list is complete, run:
 
@@ -18,7 +18,7 @@ These files don't exist upstream.
 
 ### macOS platform layer
 
-- `ok/device/capture_methods/macos_screencapturekit.py`: streams the game window with ScreenCaptureKit on macOS 14 and later. This is the default.
+- `ok/device/capture_methods/macos_screencapturekit.py`: streams the game window with ScreenCaptureKit on macOS 14 and later. This is the default and falls back to Quartz when stream frames become stale.
 - `ok/device/capture_methods/macos_quartz.py`: captures the game window with CoreGraphics (Quartz). This is the fallback, and the default on macOS 13.
 - `ok/device/interaction_methods/macos_quartz.py`: sends keyboard and mouse input as Quartz events, and reports a missing Accessibility permission instead of posting silently.
 - `ok/util/window_macos.py`: finds the game window and tracks its position, size and focus. Focus is read through the Process Manager, because `NSWorkspace` goes stale without a Cocoa run loop, and activation falls back to System Events.
@@ -103,6 +103,7 @@ These modules import `win32api`, `win32gui`, `ctypes.windll`, `winreg` or simila
 
 ### Small fixes
 
+- `ok/feature/FeatureSet.py`: removes the deprecated X-AnyLabeling packed exporter.
 - `ok/util/collection.py`: matching a saved option also works when the option label has a suffix.
 - `ok/task/task.py`: `tr()` works before the app exists.
 - `ok/test/__init__.py`: resets globals and the translator between game tests.

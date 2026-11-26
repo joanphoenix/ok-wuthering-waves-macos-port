@@ -9,6 +9,7 @@ import numpy as np
 from ok import BaseTask, Logger, find_boxes_by_name, og, find_color_rectangles, mask_white, Box
 from ok import CannotFindException
 from ok.core.events import communicate
+from ok.task.exceptions import WaitFailedException
 import cv2
 
 from src.Labels import Labels
@@ -620,7 +621,7 @@ class BaseWWTask(BaseTask):
         self.log_info(self.tr('start walk_to_treasure'))
         if not self.walk_to_box(self.find_treasure_icon, end_condition=self.find_f_with_claim_text):
             if not self.walk_to_box(self.find_treasure_icon, end_condition=self.find_f_with_text):
-                raise Exception(self.tr('can not walk to treasure!'))
+                raise WaitFailedException(self.tr('can not walk to treasure!'))
         if send_f:
             self.walk_until_f(time_out=2, backward_time=0, raise_if_not_found=raise_if_not_found)
         self.sleep(1)

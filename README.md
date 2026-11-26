@@ -149,7 +149,7 @@ Early shell or dependency-installation errors may appear only in the terminal. I
 
 ## Updating and development
 
-The app can update itself: open **About**, click **Check for updates**, pick `main` and click **Update**. The app closes, updates the checkout, installs the packages in `requirements-macos.txt` and starts again. This needs a checkout without changes to tracked files.
+The app can update itself: open **About**, click **Check for updates**, pick `main` and click **Update**. The app closes, updates the checkout, and starts again. The macOS launcher checks dependencies during that restart, including changes to the vendored package and the web extras. This needs a checkout without changes to tracked files.
 
 To update by hand instead: before updating, stop automation and close the tool. Review local changes with `git status`, then update a clean checkout:
 
@@ -178,7 +178,7 @@ python3 .github/scripts/sync_upstream.py --check   # show the releases this fork
 python3 .github/scripts/sync_upstream.py           # apply them, writing upstream-sync-report.md
 ```
 
-The fork shares no git history with upstream, so the script applies the diff between two upstream release tags with a 3-way merge. When the release moves the ok-script pin, it also applies the diff between the two ok-script PyPI source releases to `ok-script/`. Files that need attention are listed in the report. When resolving conflicts, keep the macOS code paths. If you change a file under `ok-script/`, list it in [MACOS_PATCHES.md](ok-script/MACOS_PATCHES.md); `sync_upstream.py --patches` and the macOS CI check that the list is complete. Also add new dependencies to `run_macos.sh` and the macOS CI workflow, and guard new Win32-only imports.
+The fork shares no git history with upstream, so the script applies the diff between two upstream release tags with a 3-way merge. When the release moves the ok-script pin, it also applies the diff between the two ok-script PyPI source releases to `ok-script/`. Files that need attention are listed in the report. When resolving conflicts, keep the macOS code paths. If you change a file under `ok-script/`, list it in [MACOS_PATCHES.md](ok-script/MACOS_PATCHES.md); `sync_upstream.py --patches` and the macOS CI check that the list is complete. Add new macOS runtime dependencies to `requirements-macos.txt` or the vendored package metadata, and guard new Win32-only imports.
 
 ## License and credits
 

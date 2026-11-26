@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from ok.task.exceptions import WaitFailedException
 
 from src.task.BaseCombatTask import BaseCombatTask, CharRevivedException
+from src.task.BaseWWTask import RECHALLENGE_TEXT, BaseWWTask
 from src.task.DomainTask import DomainTask
 from src.task.FarmEchoTask import FarmEchoTask
 from src.task.TacetTask import TacetTask
@@ -87,6 +88,7 @@ class TestTacetDeathReentry(unittest.TestCase):
         task.use_stamina = Mock(side_effect=[(True, 120), (False, 120)])
         task.wait_until = lambda condition, **kwargs: condition()
         rechallenge_button = Mock()
+        task.box_of_screen = Mock()
         task.ocr = Mock(return_value=[rechallenge_button])
         task.click = Mock()
         task.click_relative = Mock()
@@ -96,12 +98,25 @@ class TestTacetDeathReentry(unittest.TestCase):
         self.assertEqual(240, stamina_spent)
         self.assertEqual([0], task.teleports)
         self.assertEqual(2, len(task.combat_calls))
+        task.box_of_screen.assert_called_once_with(0.54, 0.81, 0.72, 0.90, hcenter=True, vcenter=True)
+        task.ocr.assert_called_once_with(box=task.box_of_screen.return_value, match=RECHALLENGE_TEXT)
         task.click.assert_called_once_with(rechallenge_button, after_sleep=0.2)
         task.click_relative.assert_called_once_with(0.365, 0.853, hcenter=True, vcenter=True)
 
+    def test_rechallenge_fallback_is_centered(self):
+        task = self.make_task(deaths=0)
+        task.wait_until = Mock(return_value=None)
+        task.click_relative = Mock()
+
+        task.rechallenge_tacet()
+
+        task.click_relative.assert_called_once_with(0.640, 0.851, hcenter=True, vcenter=True, after_sleep=0.2)
+
     def test_resumes_active_arena_when_combat_stopped_before_reward(self):
         task = self.make_task(deaths=0)
-        task.walk_to_treasure = Mock(side_effect=[WaitFailedException(), None])
+        task.walk_to_treasure = BaseWWTask.walk_to_treasure.__get__(task)
+        task.walk_to_box = Mock(side_effect=[False, False, True])
+        task.walk_until_f = Mock()
         task.in_realm = Mock(return_value=True)
         task.wait_combat = Mock(return_value=True)
 
