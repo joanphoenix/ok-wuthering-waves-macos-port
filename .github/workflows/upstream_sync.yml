@@ -1,0 +1,112 @@
+name: Upstream sync
+
+# Checks ok-oldking/ok-wuthering-waves for newer releases and opens a pull
+# request that applies them with .github/scripts/sync_upstream.py. Conflicts
+# are committed with their markers so they can be resolved on the PR; the PR
+# is a draft whenever anything needs attention.
+#
+# Pull requests opened with the default GITHUB_TOKEN do not start other
+# workflows, so CI will not run on them by itself. To get CI automatically,
+# add a fine-grained token with Contents and Pull requests write access as the
+# UPSTREAM_SYNC_TOKEN repository secret.
+
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+    inputs:
+      to:
+        description: 'Upstream tag to sync to (default: newest release)'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN || github.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check for new upstream releases
+        id: check
+        env:
+          REQUESTED_TAG: ${{ inputs.to }}
+        run: |
+          args=(--check)
+          if [ -n "$REQUESTED_TAG" ]; then args+=(--to "$REQUESTED_TAG"); fi
+          result=$(python .github/scripts/sync_upstream.py "${args[@]}")
+          echo "$result"
+          target=$(jq -r .target <<<"$result")
+          count=$(jq '.releases | length' <<<"$result")
+          branch="upstream-sync/$target"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          if [ "$count" = "0" ]; then
+            echo "Already on the newest upstream release."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch already exists; leaving the open sync alone."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply upstream changes
+        id: sync
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${{ steps.check.outputs.branch }}"
+          set +e
+          python .github/scripts/sync_upstream.py --to "${{ steps.check.outputs.target }}" --report "$RUNNER_TEMP/report.md"
+          status=$?
+          set -e
+          if [ "$status" = "1" ]; then exit 1; fi
+          echo "attention=$([ "$status" = "2" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          git add -A
+          git commit -m "Sync with upstream ${{ steps.check.outputs.target }}"
+          git push -u origin "${{ steps.check.outputs.branch }}"
+
+      - name: Open the pull request
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          target="${{ steps.check.outputs.target }}"
+          body="$RUNNER_TEMP/body.md"
+          cat "$RUNNER_TEMP/report.md" > "$body"
+          cat >> "$body" <<'EOF'
+
+          ### Before merging
+
+          - Resolve any conflict markers, keeping the macOS code paths.
+          - Check new dependencies in `pyproject.toml` and add them to `run_macos.sh` and `.github/workflows/macos.yml`.
+          - Look for new Win32-only imports (`win32api`, `win32gui`, `win32con`, `ctypes.windll`) and guard them.
+          - Run the macOS test suites, and try any new tasks in the game.
+
+          Opened by the Upstream sync workflow.
+          EOF
+          draft=()
+          if [ "${{ steps.sync.outputs.attention }}" = "true" ]; then draft=(--draft); fi
+          if ! gh pr create "${draft[@]}" --base "${{ github.event.repository.default_branch }}" \
+              --head "${{ steps.check.outputs.branch }}" \
+              --title "Sync with upstream $target" --body-file "$body"; then
+            echo "Could not open a pull request (is 'Allow GitHub Actions to create pull requests' off?); opening an issue instead."
+            gh issue create --title "Upstream $target is ready to merge" --body-file "$body"
+          fi

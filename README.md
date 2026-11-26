@@ -2,7 +2,7 @@
 
 A macOS Apple Silicon port of [ok-wuthering-waves](https://github.com/ok-oldking/ok-wuthering-waves), an image-recognition automation tool for *Wuthering Waves*, built with [ok-script](https://github.com/ok-oldking/ok-script).
 
-This fork tracks upstream [v3.8.9](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.9) and includes a vendored, locally modified **ok-script 3.0.7**. macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
+This fork tracks upstream [v3.8.15](https://github.com/ok-oldking/ok-wuthering-waves/releases/tag/v3.8.15) and includes a vendored, locally modified **ok-script 3.0.14**. macOS screen capture, input, game discovery, and UI adaptations are maintained in this repository.
 
 ## Features
 
@@ -162,6 +162,19 @@ If Git reports local changes or diverged history, resolve those before updating.
 - [Vendored ok-script](ok-script)
 
 Some inherited documentation describes Windows behavior, dependencies, and background automation. Use this README and `run_macos.sh` for macOS setup and foreground-input requirements.
+
+### Syncing with upstream
+
+The upstream release and ok-script version this fork tracks are recorded in [`.github/upstream.json`](.github/upstream.json). Every day, the [Upstream sync workflow](.github/workflows/upstream_sync.yml) checks for newer upstream releases. When it finds one, it opens a pull request named `Sync with upstream vX.Y.Z`, as a draft if any files need manual merging. You can also run the workflow from the Actions tab and choose a tag.
+
+To sync by hand from a clean checkout, run:
+
+```bash
+python3 .github/scripts/sync_upstream.py --check   # show the releases this fork is missing
+python3 .github/scripts/sync_upstream.py           # apply them, writing upstream-sync-report.md
+```
+
+The fork shares no git history with upstream, so the script applies the diff between two upstream release tags with a 3-way merge. When the release moves the ok-script pin, it also applies the diff between the two ok-script PyPI source releases to `ok-script/`. Files that need attention are listed in the report. When resolving conflicts, keep the macOS code paths. Also add new dependencies to `run_macos.sh` and the macOS CI workflow, and guard new Win32-only imports.
 
 ## License and credits
 
