@@ -27,11 +27,20 @@ def bind_mcp_socket(port):
     """Reserve the first available loopback port, incrementing on conflicts only."""
     if not 0 <= port <= 65535:
         raise ValueError('mcp.port must be between 0 and 65535')
+    # On Windows, binding 127.0.0.1:port fails with EACCES (errno 13 /
+    # winerror 10013) instead of EADDRINUSE/10048 when another process already
+    # listens on 0.0.0.0:port. Common offender: Baidu IME holds 0.0.0.0:8765,
+    # which made enabling the MCP server fail with [Errno 13]. Treat it as a
+    # port conflict too and retry the next port; the actual port is written
+    # back to the connection file, so clients discover it dynamically.
+    conflict_errnos = (errno.EADDRINUSE, errno.EACCES)
+    conflict_winerrors = (10048, 10013)
     while True:
         try:
             return socket.create_server(('127.0.0.1', port))
         except OSError as error:
-            if error.errno != errno.EADDRINUSE and getattr(error, 'winerror', None) != 10048:
+            if (error.errno not in conflict_errnos
+                    and getattr(error, 'winerror', None) not in conflict_winerrors):
                 raise
             if port == 65535:
                 raise OSError(errno.EADDRINUSE, 'No available MCP port up to 65535') from error
@@ -126,6 +135,8 @@ def create_mcp_app(runner, token, port, request_exit=None):
         'until the reload finishes before testing. Read the reload-tasks skill for this workflow. '
         'Write a local Python file defining class Task(BaseTask) with reset_to_start(), '
         'verify_start_state(), and run(). Call run_task with its absolute path. '
+        'For quick probes such as one click or key press, call run_code with a snippet '
+        'using self (a fresh BaseTask); it skips reset and verification. '
         'Read logs and screenshots directly from the returned local paths. '
         'Use assertions in run() to verify success. A stopping run still owns the executor. '
         'If runtime state cannot be cleared or reset, code is stuck, or cached dependencies '
@@ -180,6 +191,18 @@ def create_mcp_app(runner, token, port, request_exit=None):
         Edit the file and invoke again to load a fresh task instance.
         """
         return await asyncio.to_thread(runner.run_task, file_path)
+
+    @mcp.tool()
+    async def run_code(source: str) -> dict[str, Any]:
+        """Run a Python snippet for probing, with self bound to a fresh BaseTask.
+
+        Example: self.click(123, 456); self.send_key('esc'). Skips reset and
+        start-state verification. A trailing expression's repr becomes the result.
+        get_task(task_id) returns a registered task by an ID from list_tasks.
+        Returns a run ID immediately; source is saved as source.py in the artifacts.
+        Put finished behavior in task files, not snippets.
+        """
+        return await asyncio.to_thread(runner.run_code, source)
 
     @mcp.tool()
     async def get_run_status(run_id: str) -> dict[str, Any]:

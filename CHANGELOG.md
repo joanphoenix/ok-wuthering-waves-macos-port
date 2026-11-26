@@ -2,6 +2,41 @@
 
 Release history starts at v3.0.0.
 
+## v3.8.15 (2026-11-25)
+- Fixed repeated OCR errors and restored Simplified Chinese conversion when using the Traditional Chinese interface.
+- Scheduled runs now exit if game login times out, and revive recovery gives waypoint travel more time to finish.
+- Domain farming can re-enter from the Guidebook if Rechallenge fails to reach the next start prompt.
+- Auto Combat reads the Concerto gauge more accurately and spends less time on stalled skill attempts and support swaps. Fixed an extra switch after Suisui's Resonance Skill.
+- Auto Combat respects Lily's Slumberland timing when choosing who to switch in and preserves custom mouse button bindings during OCR hotkey detection.
+
+## v3.8.14 (2026-11-24)
+
+- Cloud game: frames are now read straight from the game's video stream instead of capturing the browser window, so capture keeps working while the browser is minimized (ok-script 3.0.13).
+- Cloud game: starting again after a failed browser launch now works without restarting ok-ww (ok-script 3.0.12).
+- When a task stops with an error, the screenshot is now saved even if the error came right after a wait, and goes to `screenshots/error/` named like `error_DailyTask_CannotFindException` (ok-script 3.0.11).
+- “3.8 拉海洛方块·逆转” no longer saves a screenshot every time a placement preview misses; it still retries and logs a warning.
+
+## v3.8.13 (2026-11-23)
+
+- “3.8 拉海洛方块·逆转”: no longer crashes when a stage clears more blocks than predicted (explosive and faulty blocks).
+- “3.8 拉海洛方块·逆转”: closes the mechanic manuals that appear over the board in the new stages, and recognizes boards with four piece trays.
+- “3.8 拉海洛方块·逆转”: recognizes the board even when its top border sits a few pixels higher or lower.
+
+## v3.8.12 (2026-11-22)
+
+- Moved Daily Task back to the top of the task list.
+- The command-line docs now start tasks by class name (for example `-t DailyTask -e`) instead of list position, and list the common task class names.
+
+## v3.8.11 (2026-11-22)
+
+- Publishes the v3.8.10 changes listed below; the v3.8.10 build was not released. No additional user-facing changes.
+
+## v3.8.10 (2026-11-22)
+
+- Added the manual task “Cultivation Resource Farm”, which follows the Guidebook cultivation target: it clears the echo set Nightmare Nest (no Waveplates), farms Resonator Ascension and Skill Materials first (respecting the 3 weekly Skill Material claims), then spends the remaining Waveplates on the echo set Tacet Suppression. Supports the Simplified Chinese game UI at 16:9 only.
+- Added “Cultivation Target” to the Daily Task “Which to Farm” option; it farms with the Cultivation Resource Farm task settings.
+- Added an Export Logs button to the Log tab (ok-script 3.0.10).
+
 ## v3.8.9 (2026-11-20)
 
 - Fixed “3.8 GalGame” getting stuck on additional first-time tutorials, including the save-button prompt (`点击【档案存储】`), multi-page help popups (`「疲劳」`), and the commission-tab tutorial triggered while switching schedule tabs.

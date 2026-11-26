@@ -139,6 +139,7 @@ python -m pip install --editable . --group default --group dev
 - [星痕共鸣](https://github.com/Sanheiii/ok-star-resonance)
 - [二重螺旋](https://github.com/BnanZ0/ok-duet-night-abyss)
 - [卡厄思梦境](https://github.com/baoxin1100/ok-kes)
+- [蓝色星原：旅谣 · okap](https://github.com/longer-sausage/ok-ap)
 - [阴阳师](https://github.com/YunLiuZ/ok-Onmyoji)
 - [白荆回廊](https://github.com/ok-oldking/ok-baijing)（停止维护）
 

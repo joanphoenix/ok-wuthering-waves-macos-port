@@ -3,11 +3,11 @@ import re
 from ok import Logger
 from ok.task.exceptions import WaitFailedException
 from src.task.BaseCombatTask import BaseCombatTask, CharRevivedException
+from src.task.BaseWWTask import RECHALLENGE_TEXT
 from src.task.WWOneTimeTask import WWOneTimeTask
 from src.task.task_icons import task_icon
 
 logger = Logger.get_logger(__name__)
-RECHALLENGE_TEXT = re.compile(r'^\s*(?:重新挑战|重新挑戰|再次挑战|再次挑戰|Rechallenge)\s*$', re.IGNORECASE)
 
 class TacetTask(WWOneTimeTask, BaseCombatTask):
 
@@ -55,7 +55,14 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
         self.wait_in_team_and_world(esc=True)
         self.farm_tacet()
 
-    def farm_tacet(self, daily=False, used_stamina=0, config=None, max_recovery_retries=3):
+    def farm_tacet(self, daily=False, used_stamina=0, config=None, max_recovery_retries=3,
+                   open_entry=None, enter_tacet=None):
+        """Farm Tacet Suppression until stamina runs out.
+
+        open_entry/enter_tacet let other tasks reuse this loop from another page:
+        open_entry() must show the stamina bar, enter_tacet() must open the team screen.
+        Both default to the F2 Tacet list selected by config.
+        """
         if config is None:
             config = self.config or self.default_config
         if daily:
@@ -68,31 +75,39 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
         self.realm_entry_at_heal_point = False
         while True:
             self.sleep(1)
-            self.openF2Book("gray_book_boss")
-            current, back_up, total = self.get_stamina()
-            if current == -1:
-                self.click_relative(0.04, 0.4, after_sleep=1)
+            if open_entry is None:
+                self.openF2Book("gray_book_boss")
+                current, back_up, total = self.get_stamina()
+                if current == -1:
+                    self.click_relative(0.04, 0.4, after_sleep=1)
+                    current, back_up, total = self.get_stamina()
+            else:
+                open_entry()
                 current, back_up, total = self.get_stamina()
             if total < self.stamina_once:
                 self.not_enough_stamina()
                 return stamina_spent
 
-            self.open_boss_book('wuyin')
-            raw_target = config.get('Which Tacet Suppression to Farm', 1)
-            if isinstance(raw_target, str):
-                match = re.search(r'\d+', raw_target)
-                index = (int(match.group(0)) - 1) if match else 0
+            if enter_tacet is None:
+                self.open_boss_book('wuyin')
+                raw_target = config.get('Which Tacet Suppression to Farm', 1)
+                if isinstance(raw_target, str):
+                    match = re.search(r'\d+', raw_target)
+                    index = (int(match.group(0)) - 1) if match else 0
+                else:
+                    try:
+                        index = int(raw_target) - 1
+                    except (ValueError, TypeError):
+                        index = 0
+                total_num = getattr(self, 'total_number', 21)
+                index = max(0, min(index, total_num - 1))
+                is_team = self.teleport_to_tacet(index)
+                if not is_team:
+                    self.wait_click_travel()
+                else:
+                    self.click_team_challenge()
             else:
-                try:
-                    index = int(raw_target) - 1
-                except (ValueError, TypeError):
-                    index = 0
-            total_num = getattr(self, 'total_number', 21)
-            index = max(0, min(index, total_num - 1))
-            is_team = self.teleport_to_tacet(index)
-            if not is_team:
-                self.wait_click_travel()
-            else:
+                enter_tacet()
                 self.click_team_challenge()
             while True:
                 self.wait_in_team_and_world(time_out=120)

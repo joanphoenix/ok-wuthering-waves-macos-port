@@ -4,10 +4,16 @@ from pathlib import Path
 
 
 def skill_root():
+    # The vendored macOS copy keeps the consumer skills where a built wheel
+    # puts them, so prefer that folder; the checkout's own .agents/skills only
+    # holds the maintainer skills for working on ok-script itself.
+    packaged = Path(__file__).resolve().parents[1] / 'agent_resources/.agents/skills'
+    if packaged.is_dir():
+        return packaged
     checkout = Path(__file__).resolve().parents[2]
     if (checkout / 'pyproject.toml').is_file() and (checkout / '.agents/skills').is_dir():
         return checkout / '.agents/skills'
-    return Path(__file__).resolve().parents[1] / 'agent_resources/.agents/skills'
+    return packaged
 
 
 def list_skills():

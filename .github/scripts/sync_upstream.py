@@ -95,6 +95,16 @@ def show_blob(rev, path, cwd=ROOT):
                           check=True).stdout
 
 
+def find_moved_copy(old, path, local_prefix):
+    """Find an unmodified copy of upstream's old file that the port moved elsewhere."""
+    blob = git("rev-parse", f"{old}:{path}").stdout.strip()
+    for row in git("ls-files", "--stage", "--", local_prefix or ".").stdout.splitlines():
+        meta, tracked = row.split("\t", 1)
+        if meta.split()[1] == blob:
+            return tracked
+    return None
+
+
 def sync_tree(old, new, local_prefix="", source_cwd=ROOT, excludes=()):
     """Apply old..new onto ROOT/local_prefix. Returns report rows (status, path, note)."""
     rows = []
@@ -113,6 +123,10 @@ def sync_tree(old, new, local_prefix="", source_cwd=ROOT, excludes=()):
             rows.append(("review", local, "upstream deleted it; the port had local changes"))
         elif status == "D":
             rows.append(("clean", local, "already absent locally"))
+        elif status == "M" and (moved := find_moved_copy(old, path, local_prefix)):
+            (ROOT / moved).write_bytes(show_blob(new, path, cwd=source_cwd))
+            git("add", moved)
+            rows.append(("clean", moved, f"the port keeps this file at `{moved}`"))
         elif status in ("M", "A") and not local_path.exists():
             local_path.parent.mkdir(parents=True, exist_ok=True)
             local_path.write_bytes(show_blob(new, path, cwd=source_cwd))

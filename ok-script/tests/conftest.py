@@ -49,9 +49,18 @@ NEEDS_QFLUENTWIDGETS = (
     "test_task_ui.py",
 )
 
+# These modules import pywin32 at module level, so they cannot be collected
+# off Windows. They cover the Win32 PostMessage path, which the macOS port
+# replaces with Quartz input.
+WINDOWS_ONLY_MODULES = (
+    "test_post_message_activation.py",
+)
+
 collect_ignore = []
 if importlib.util.find_spec("qfluentwidgets") is None:
     collect_ignore.extend(NEEDS_QFLUENTWIDGETS)
+if sys.platform != "win32":
+    collect_ignore.extend(WINDOWS_ONLY_MODULES)
 
 
 def pytest_collection_modifyitems(items):
