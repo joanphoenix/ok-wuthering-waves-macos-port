@@ -18,6 +18,19 @@ logger = Logger.get_logger(__name__)
 # How long next_frame() waits for another caller to finish its capture request.
 NEXT_FRAME_BUSY_WAIT = 0.1
 
+# Error screenshots go to <screenshots>/error/ so they are easy to find.
+ERROR_SCREENSHOT_FOLDER = 'error'
+
+
+def error_screenshot_name(task, error):
+    """Name the screenshot saved when ``task`` stops with ``error``.
+
+    Uses the task class name instead of the display name, which may be
+    translated or start with an emoji, so the file stays ASCII and
+    searchable, e.g. ``error/error_DailyTask_CannotFindException``.
+    """
+    return f'{ERROR_SCREENSHOT_FOLDER}/error_{type(task).__name__}_{type(error).__name__}'
+
 
 class ExecutorJob:
     """A callable that runs once on the executor thread, outside the task queue.
@@ -93,6 +106,8 @@ class TaskExecutor:
                  ocr_lib=None,
                  config_folder=None, debug=False, global_config=None, ocr_target_height=0, config=None):
         self._frame = None
+        # Unlike _frame this survives reset_scene(); used for error screenshots.
+        self._last_frame = None
         device_manager.executor = self
         self.pause_start = time.time()
         self.pause_end_time = time.time()
@@ -278,21 +293,19 @@ class TaskExecutor:
         # copying without blocking queue operations on a potentially large image.
         return (snapshot[0].copy(), snapshot[1]) if snapshot is not None else None
 
-    def check_frame_and_resolution(self, supported_ratio, min_size, time_out=8.0):
+    def check_frame_and_resolution(self, supported_ratio, min_size, time_out=8.0, frame=None):
         if supported_ratio is None or min_size is None:
             return True, '0x0'
         logger.info(f'start check_frame_and_resolution')
         self.device_manager.update_resolution_for_hwnd()
         start = time.time()
-        frame = None
         while frame is None and (time.time() - start) < time_out:
             frame = self.method.get_frame()
             time.sleep(0.1)
         if frame is None:
             logger.error(f'check_frame_and_resolution failed can not get frame after {time_out} {time.time() - start}')
             return False, '0x0'
-        width = self.method.width
-        height = self.method.height
+        height, width = frame.shape[:2]
         actual_ratio = 0
         if height == 0:
             actual_ratio = 0
@@ -346,6 +359,7 @@ class TaskExecutor:
                     if height <= 0 or width <= 0:
                         logger.warning(f"captured wrong size frame: {width}x{height}")
                     self._frame = frame
+                    self._last_frame = frame
                     self._last_frame_time = time.time()
                     if getattr(self, '_snapshot_enabled', False):
                         snapshot = (frame.copy(), self._last_frame_time)
@@ -808,6 +822,9 @@ class TaskExecutor:
             elif time.time() - self._last_frame_time > 0.2:
                 self.reset_scene()
             try:
+                # Never attach a frame captured for a previous task to this
+                # task's error screenshot.
+                self._last_frame = self._frame
                 task.start_time = time.time()
                 task.running = True
                 self.current_task = task
@@ -843,6 +860,10 @@ class TaskExecutor:
                         communicate.quit.emit()
             except TaskDisabledException:
                 logger.info(f"TaskDisabledException, continue {task}")
+                if not is_trigger_task:
+                    # A one-time task that raised TaskDisabledException itself
+                    # is finished; trigger tasks keep their enabled setting.
+                    task.disable()
                 self._finish_task(task, is_trigger_task)
                 communicate.notification.emit('Stopped', task.name, False,
                                               False, None, None, None)
@@ -864,8 +885,12 @@ class TaskExecutor:
                 communicate.notification.emit(error, name, True, True, None, params, None)
                 task.info_set(task._app.tr('Error'), error)
                 logger.error(f"{name} exception stopped", e)
-                if self._frame is not None:
-                    communicate.screenshot.emit(self._frame, name, True, None)
+                # sleep() and reset_scene() clear _frame, so a task that raises
+                # right after waiting has no current frame; fall back to the
+                # last frame captured for this task.
+                frame = self._frame if self._frame is not None else self._last_frame
+                if frame is not None:
+                    communicate.screenshot.emit(frame, error_screenshot_name(task, e), True, None)
                 self.current_task = None
                 communicate.task.emit(None)
             finally:

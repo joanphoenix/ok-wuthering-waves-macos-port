@@ -1,6 +1,7 @@
 import os
 import re
 import threading
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
@@ -287,7 +288,9 @@ class DeviceManager:
             return imei
 
     def update_browser_device(self):
-        if self.browser_config and windows_graphics_available():
+        # Cloud-game capture drives Chrome/Edge through Win32 windows and WGC;
+        # the macOS Quartz capture cannot back it, so only offer it on Windows.
+        if self.browser_config and sys.platform == "win32" and windows_graphics_available():
             width, height = self.browser_config.get('resolution', (1280, 720))
             nick = self.browser_config.get('nick', 'Browser')
             connected = False
@@ -535,7 +538,17 @@ class DeviceManager:
         return preferred
 
     def get_preferred_capture(self):
-        return self.config.get("capture")
+        """Return the capture method in effect for the preferred device.
+
+        The saved ``capture`` value can belong to another device type (for
+        example ``browser`` after switching to a PC window), so fall back to the
+        device's first available method in that case.
+        """
+        selected = self.config.get("capture")
+        available = self.available_capture_methods()
+        if not available or selected in available:
+            return selected
+        return available[0]
 
     def available_capture_methods(self, device=None):
         """Return valid capture method identifiers for a selected device."""
@@ -677,7 +690,8 @@ class DeviceManager:
             if not isinstance(self.capture_method, BrowserCaptureMethod):
                 if self.capture_method is not None:
                     self.capture_method.close()
-                self.capture_method = BrowserCaptureMethod(self.browser_config, self.exit_event)
+                self.capture_method = BrowserCaptureMethod(
+                    self.browser_config, self.exit_event, global_config=self.global_config)
             if not isinstance(self.interaction, BrowserInteraction):
                 self.interaction = BrowserInteraction(self.capture_method)
 
