@@ -10,12 +10,13 @@ def test_failed_install_retries_and_dependency_changes_invalidate_stamp(tmp_path
     (tmp_path / 'ok-script').mkdir()
     (tmp_path / 'ok-script/pyproject.toml').write_text('framework')
     (tmp_path / 'pyproject.toml').write_text('app')
+    (tmp_path / 'requirements-macos.txt').write_text('mac packages')
     bin_dir = tmp_path / '.venv/bin'
     bin_dir.mkdir(parents=True)
     python = bin_dir / 'python'
     python.write_text('''#!/bin/sh
 case "$*" in
-  *"-m pip install -e"*)
+  *"-m pip install -r"*)
     echo install >> "$TEST_LOG"
     echo "$*" >> "$TEST_ARGUMENTS"
     if [ -f "$FAIL_INSTALL" ]; then exit 1; fi
@@ -47,6 +48,9 @@ exit 0
     assert len(log.read_text().splitlines()) == 4
     assert launch().returncode == 0
     assert len(log.read_text().splitlines()) == 5
+    (tmp_path / 'requirements-macos.txt').write_text('changed mac packages')
+    assert launch().returncode == 0
+    assert len(log.read_text().splitlines()) == 6
 
 
 def test_macos_app_window_initialization():
