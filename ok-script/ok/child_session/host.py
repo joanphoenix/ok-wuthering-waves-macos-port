@@ -2,7 +2,11 @@
 
 import os
 import sys
-import winreg
+
+if sys.platform == "win32":
+    import winreg
+else:
+    winreg = None
 
 from ok.child_session import protocol
 from ok.util.logger import Logger

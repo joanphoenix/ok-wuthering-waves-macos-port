@@ -257,10 +257,12 @@ config = {
     },
     # Optional: run the PC game in a Windows child session so tasks never move the
     # user's own mouse or keyboard. Uses the 'windows' settings above to find the game.
-    'child_session': {
+    # Windows child sessions (Remote Desktop) don't exist on macOS, so leave
+    # the option, its tab and its interaction off there.
+    **({'child_session': {
         'resolution': (1920, 1080),
         'nick': 'Wuthering Waves (Child Session)',
-    },
+    }} if sys.platform == 'win32' else {}),
     'browser': {
         'url': 'https://mc.kurogames.com/cloud/#/',
         'resolution': (1920, 1080),

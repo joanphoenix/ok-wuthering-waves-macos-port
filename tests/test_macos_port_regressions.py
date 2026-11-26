@@ -352,9 +352,16 @@ def test_saved_cloud_selection_falls_back_to_the_native_client():
     manager.config.__getitem__.side_effect = saved.__getitem__
     manager.config.__setitem__.side_effect = saved.__setitem__
     manager.windows_capture_config = {'capture_method': ['WGC', 'BitBlt_RenderFull']}
+    manager.child_session_config = None
     native = {'imei': 'pc', 'device': 'windows', 'connected': True}
     manager.device_dict = {'pc': native}
     manager.start = MagicMock()
     manager.set_preferred_device()
     assert manager.get_preferred_device() is native
     assert manager.get_preferred_capture() == 'WGC'
+
+
+def test_child_session_is_windows_only():
+    # The upstream child-session option drives Windows Remote Desktop APIs.
+    import config
+    assert ('child_session' in config.config) == (sys.platform == 'win32')
