@@ -1,7 +1,7 @@
 import os
 import re
-import sys
 import threading
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
@@ -288,12 +288,9 @@ class DeviceManager:
             return imei
 
     def update_browser_device(self):
-        if sys.platform != "win32":
-            self.device_dict.pop("browser", None)
-            if self.config.get("preferred") == "browser":
-                self.set_preferred_device()
-            return
-        if self.browser_config and windows_graphics_available():
+        # Cloud-game capture drives Chrome/Edge through Win32 windows and WGC;
+        # the macOS Quartz capture cannot back it, so only offer it on Windows.
+        if self.browser_config and sys.platform == "win32" and windows_graphics_available():
             width, height = self.browser_config.get('resolution', (1280, 720))
             nick = self.browser_config.get('nick', 'Browser')
             connected = False
@@ -446,18 +443,6 @@ class DeviceManager:
             imei = self.get_devices()[index]['imei']
         elif imei is None:
             imei = self.config.get("preferred")
-        if sys.platform != "win32" and imei == 'browser':
-            native = [device for device in self.device_dict.values() if device.get('device') == 'windows']
-            if native:
-                imei = max(native, key=lambda device: bool(device.get('connected')))['imei']
-                if self.config.get('preferred') == 'browser':
-                    if self.config.get('capture') == 'browser':
-                        self.config['capture'] = self.available_capture_methods(
-                            self.device_dict[imei])[0]
-                    from ok.core.notifications import alert_info
-                    alert_info('Cloud gameplay requires Windows capture. Switched to the native game client.')
-            else:
-                return
         preferred = self.device_dict.get(imei)
         if preferred is None:
             if len(self.device_dict) > 0:
@@ -549,12 +534,21 @@ class DeviceManager:
 
     def get_preferred_device(self):
         imei = self.config.get("preferred")
-        if sys.platform != "win32" and imei == 'browser':
-            return None
-        return self.device_dict.get(imei)
+        preferred = self.device_dict.get(imei)
+        return preferred
 
     def get_preferred_capture(self):
-        return self.config.get("capture")
+        """Return the capture method in effect for the preferred device.
+
+        The saved ``capture`` value can belong to another device type (for
+        example ``browser`` after switching to a PC window), so fall back to the
+        device's first available method in that case.
+        """
+        selected = self.config.get("capture")
+        available = self.available_capture_methods()
+        if not available or selected in available:
+            return selected
+        return available[0]
 
     def available_capture_methods(self, device=None):
         """Return valid capture method identifiers for a selected device."""
@@ -980,8 +974,6 @@ class DeviceManager:
                         raise Exception(f"Failed to resize ADB to {resolution}: {e}")
 
         elif 'browser' in config:
-            if sys.platform != 'win32':
-                raise ValueError('Cloud gameplay requires Windows capture.')
             browser_config = config['browser']
             self.clear_devices()
             if not getattr(self, 'browser_config', None):
@@ -1009,8 +1001,6 @@ class DeviceManager:
     def ensure_capture(self, config: dict):
         import time
         logger.info(f'ensure_capture {config}')
-        if sys.platform != 'win32' and 'browser' in config and not ('windows' in config or 'adb' in config):
-            raise ValueError('Cloud gameplay requires Windows capture.')
         self.clear_devices()
         if 'windows' in config:
             win_config = config['windows']

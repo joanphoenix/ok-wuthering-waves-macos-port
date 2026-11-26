@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ok-script"
 dynamic = ["version"]
-description = "Automation with Computer Vision for Python"
+description = "Vibe Coding Automation Framework"
 readme = "README.md"
 license = { file = "LICENSE.txt" }
 requires-python = ">=3.11"
@@ -28,6 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "pywin32>=306,!=312; sys_platform == 'win32'",
+    # The standalone extra updates a git checkout without the PyAppify launcher.
     "pyappify[standalone]>=1.0.16",
     "typing-extensions>=4.11.0",
     "requests>=2.32.3",
@@ -79,6 +80,7 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/ok-oldking/ok-script"
 Repository = "https://github.com/ok-oldking/ok-script"
+"Agent setup" = "https://github.com/ok-oldking/ok-script/blob/master/docs/agent-setup.md"
 
 [project.scripts]
 ok = "ok.cli:main"
@@ -124,4 +126,5 @@ zip-safe = false
 exclude = ["tests*", "docs*"]
 
 [tool.setuptools.package-data]
+ok = ["assets/*.png"]
 "ok.ui.web" = ["static/*.html", "static/*.js", "static/*.css", "static/*.png"]

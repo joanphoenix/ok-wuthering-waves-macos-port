@@ -322,7 +322,7 @@ class BaseCombatTask(CombatCheck):
         if not travel:
             raise RuntimeError(self.tr('Can not find the travel button'))
         self.click_box(travel, relative_x=1.5)
-        self.wait_in_team_and_world(time_out=20)
+        self.wait_in_team_and_world(time_out=120)
         self.sleep(2)
 
     def raise_not_in_combat(self, message):
@@ -1104,6 +1104,10 @@ class BaseCombatTask(CombatCheck):
             self.raise_not_in_combat('combat check not in combat')
 
     def set_key(self, key, box):
+        current_key = self.key_config.get(key)
+        # If the user explicitly configured mouse4, mouse5 or xbutton, never override it
+        if current_key and current_key.lower() in ['mouse4', 'mouse5', 'xbutton1', 'xbutton2']:
+            return
         best = self.find_best_match_in_box(box, ['t', 'e', 'r', 'q'], threshold=0.7)
         logger.debug(f'set_key best match {key}: {best}')
         if best and best.name != self.key_config[key]:

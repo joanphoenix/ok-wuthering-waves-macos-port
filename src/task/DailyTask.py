@@ -44,8 +44,8 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
             ADDITIONAL_TASKS: [CHECK_WEEKLY_GARDEN],
         }
         self.config_description = {
-            'Which Tacet Suppression to Farm': 'The Tacet Suppression number in the F2 list (1-21).',
-            'Which Forgery Challenge to Farm': 'The Forgery Challenge number in the F2 list (1-20).',
+            'Which Tacet Suppression to Farm': 'The Tacet Suppression number in the F2 list.',
+            'Which Forgery Challenge to Farm': 'The Forgery Challenge number in the F2 list.',
             'Which to Farm': 'Cultivation Target follows the Guidebook cultivation target and the '
                              'Cultivation Resource Farm task settings (Simplified Chinese, 16:9).',
             'Material Selection': 'Resonator EXP / Weapon EXP / Shell Credit',

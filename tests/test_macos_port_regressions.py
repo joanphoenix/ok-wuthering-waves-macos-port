@@ -73,10 +73,9 @@ def test_focus_loss_releases_held_mouse_button():
         assert quartz.CGEventPostToPid.call_count == 1
 
 
-def test_spinbox_installer_is_idempotent_and_windows_is_untouched():
-    from PySide6.QtWidgets import QApplication, QSpinBox
+def test_kit_number_box_shows_and_steps_its_value():
+    from PySide6.QtWidgets import QApplication
     from ok.ui.qt.kit.inputs import NumberBox
-    from ok.ui.qt.util.macos_compat import fix_spinbox_layout
     global _test_qt_app
     _test_qt_app = QApplication.instance() or QApplication([])
     # The live tasks page uses the kit number box, which does not need Fluent widgets.
@@ -84,12 +83,6 @@ def test_spinbox_installer_is_idempotent_and_windows_is_untouched():
     assert box.spin_box.lineEdit().text() == '1'
     box.plus_button.click()
     assert box.value() == 2
-    widget = QSpinBox()
-    with patch('ok.ui.qt.util.macos_compat.sys.platform', 'win32'):
-        original = widget.styleSheet()
-        fix_spinbox_layout(widget)
-        assert widget.styleSheet() == original
-    widget.deleteLater()
     box.deleteLater()
 
 
@@ -196,6 +189,27 @@ def test_web_launch_mode_still_resolves():
     assert (resolved['type'], resolved['launch_mode']) == ('web', 'pywebview')
 
 
+def test_cloud_game_browser_device_is_not_offered_off_windows():
+    from ok.device import DeviceManager as device_manager_module
+    manager = device_manager_module.DeviceManager.__new__(device_manager_module.DeviceManager)
+    manager.browser_config = {'url': 'https://example.invalid/', 'resolution': (1920, 1080), 'nick': 'Cloud'}
+    manager.device_dict = {}
+    manager.capture_method = None
+    with patch.object(device_manager_module.sys, 'platform', 'darwin'), \
+            patch.object(device_manager_module, 'windows_graphics_available', return_value=True):
+        manager.update_browser_device()
+    assert 'browser' not in manager.device_dict
+
+
+def test_echo_tasks_open_screenshots_with_the_cross_platform_helper():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    for name in ('ChangeEchoTask.py', 'EnhanceEchoTask.py'):
+        source = (root / 'src' / 'task' / name).read_text(encoding='utf-8')
+        assert 'os.startfile' not in source
+        assert 'open_explorer_folder(' in source
+
+
 def test_denied_input_permission_reports_instead_of_silently_posting():
     quartz = MagicMock()
     quartz.CGPreflightPostEventAccess.return_value = False
@@ -240,29 +254,6 @@ def test_coordinate_free_attack_uses_cursor_after_move_back():
         ]
 
 
-def test_macos_hides_cloud_device_and_migrates_saved_selection():
-    from ok.device.DeviceManager import DeviceManager
-
-    manager = DeviceManager.__new__(DeviceManager)
-    manager.config = {'preferred': 'browser', 'capture': 'browser'}
-    manager.windows_capture_config = {'capture_method': ['WGC', 'BitBlt_RenderFull']}
-    native = {'imei': 'pc', 'device': 'windows', 'connected': True}
-    manager.device_dict = {
-        'browser': {'imei': 'browser', 'device': 'browser'},
-        'adb': {'imei': 'adb', 'device': 'adb', 'connected': True},
-        'pc': native,
-    }
-    manager.start = MagicMock()
-    with patch('ok.device.DeviceManager.sys.platform', 'darwin'), \
-            patch('ok.core.notifications.alert_info') as alert:
-        assert manager.get_preferred_device() is None
-        manager.update_browser_device()
-        assert 'browser' not in manager.device_dict
-        assert manager.get_preferred_device() is native
-        assert manager.get_preferred_capture() == 'WGC'
-        alert.assert_called_once()
-
-
 def test_macos_foreground_requires_the_active_application():
     quartz = SimpleNamespace(kCGWindowOwnerPID='pid', kCGWindowIsOnscreen='onscreen')
     window = {'pid': 42, 'onscreen': True}
@@ -291,21 +282,6 @@ def test_frontmost_app_does_not_depend_on_a_cocoa_run_loop():
             assert windows._frontmost_pid() == 42  # API removed: AppKit is all that is left
     if sys.platform == 'darwin':
         assert windows._process_manager_pid() is not None
-
-
-def test_unsupported_cloud_requests_preserve_native_device_settings():
-    from ok.device.DeviceManager import DeviceManager
-
-    manager = DeviceManager.__new__(DeviceManager)
-    manager.config = {'preferred': 'pc', 'pc_full_path': '/Applications/Wuthering Waves.app'}
-    manager.device_dict = {'pc': {'imei': 'pc', 'device': 'windows'}}
-    manager.clear_devices = MagicMock()
-    with patch('ok.device.DeviceManager.sys.platform', 'darwin'):
-        for request_capture in (manager.update_capture, manager.ensure_capture):
-            with pytest.raises(ValueError, match='requires Windows'):
-                request_capture({'browser': {}})
-    manager.clear_devices.assert_not_called()
-    assert manager.get_preferred_device() is manager.device_dict['pc']
 
 
 def test_mcp_server_rejects_unauthenticated_and_foreign_requests():
@@ -364,3 +340,21 @@ def test_daily_task_explains_why_cultivation_target_is_unavailable():
             patch.object(DailyTask, 'logged_in', False, create=True):
         task.run()
     assert 'Simplified Chinese' in task.log_error.call_args_list[0].args[0]
+
+
+def test_saved_cloud_selection_falls_back_to_the_native_client():
+    from ok.device.DeviceManager import DeviceManager
+
+    manager = DeviceManager.__new__(DeviceManager)
+    manager.config = MagicMock()
+    saved = {'preferred': 'browser', 'capture': 'browser'}
+    manager.config.get.side_effect = saved.get
+    manager.config.__getitem__.side_effect = saved.__getitem__
+    manager.config.__setitem__.side_effect = saved.__setitem__
+    manager.windows_capture_config = {'capture_method': ['WGC', 'BitBlt_RenderFull']}
+    native = {'imei': 'pc', 'device': 'windows', 'connected': True}
+    manager.device_dict = {'pc': native}
+    manager.start = MagicMock()
+    manager.set_preferred_device()
+    assert manager.get_preferred_device() is native
+    assert manager.get_preferred_capture() == 'WGC'

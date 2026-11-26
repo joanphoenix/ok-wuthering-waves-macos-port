@@ -10,6 +10,7 @@ from ctypes import wintypes
 
 import cv2
 import numpy as np
+
 if sys.platform == "win32":
     import win32con
     import win32gui

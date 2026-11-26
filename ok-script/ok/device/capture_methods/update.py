@@ -1,5 +1,5 @@
-import sys
 import time
+import sys
 
 from ok.util.logger import Logger
 from ok.util.window import windows_graphics_available
@@ -8,6 +8,7 @@ from ok.device.capture_methods import bitblt
 from ok.device.capture_methods.bitblt import BitBltCaptureMethod, ForegroundBitBltCaptureMethod
 from ok.device.capture_methods.desktop_duplication import DesktopDuplicationCaptureMethod
 from ok.device.capture_methods.windows_graphics import WindowsGraphicsCaptureMethod
+from ok.device.capture_methods.windows_graphics_hdr import WindowsGraphicsCaptureHDRMethod
 from ok.task.exceptions import CaptureBusyException
 
 logger = Logger.get_logger(__name__)
@@ -52,11 +53,16 @@ def update_capture_method(config, capture_method, hwnd, exit_event=None, selecte
         logger.error(f'update_capture_method exception, return None: {e}')
         return None
 
-def get_win_graphics_capture(capture_method, hwnd, exit_event):
+def get_win_graphics_capture(capture_method, hwnd, exit_event, hdr=False):
     if not windows_graphics_available():
         return None
 
-    target_method = WindowsGraphicsCaptureMethod
+    target_method = WindowsGraphicsCaptureHDRMethod if hdr else WindowsGraphicsCaptureMethod
+    # HDR inherits SDR's lifecycle, but must not be reused when switching
+    # back to SDR: the frame pool and CPU pixel formats are different.
+    if not hdr and isinstance(capture_method, WindowsGraphicsCaptureHDRMethod):
+        capture_method.close()
+        capture_method = None
     capture_method = get_capture(capture_method, target_method, hwnd, exit_event)
 
     try:

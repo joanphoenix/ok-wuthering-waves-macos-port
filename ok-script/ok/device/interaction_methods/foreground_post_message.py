@@ -15,8 +15,7 @@ logger = Logger.get_logger(__name__)
 class ForegroundPostMessageInteraction(GenshinInteraction):
     def __init__(self, capture: BaseCaptureMethod, hwnd_window):
         super().__init__(capture, hwnd_window)
-        if pydirectinput is not None:
-            pydirectinput.FAILSAFE = False
+        pydirectinput.FAILSAFE = False
         self.check_clickable = True
         if not is_admin():
             logger.error(f"You must be an admin to use Win32Interaction")

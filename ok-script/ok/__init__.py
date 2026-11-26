@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from ok.util.handler import Handler, ExitEvent
 from ok.util.logger import Logger
 from ok.util.file import get_path_relative_to_exe
-from ok.core.ui_config import resolve_ui_config, resolve_window_size
+from ok.core.ui_config import resolve_gui_icon, resolve_ui_config, resolve_window_size
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 if TYPE_CHECKING:
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         ImageCaptureMethod,
         NemuIpcCaptureMethod,
         WindowsGraphicsCaptureMethod,
+        WindowsGraphicsCaptureHDRMethod,
     )
     from ok.device.interaction import (
         BaseInteraction,
@@ -125,6 +126,7 @@ _LAZY_IMPORTS = {
     'BrowserCaptureMethod': ('ok.device.capture', 'BrowserCaptureMethod'),
     'ADBCaptureMethod': ('ok.device.capture', 'ADBCaptureMethod'),
     'WindowsGraphicsCaptureMethod': ('ok.device.capture', 'WindowsGraphicsCaptureMethod'),
+    'WindowsGraphicsCaptureHDRMethod': ('ok.device.capture', 'WindowsGraphicsCaptureHDRMethod'),
     'BitBltCaptureMethod': ('ok.device.capture', 'BitBltCaptureMethod'),
     'NemuIpcCaptureMethod': ('ok.device.capture', 'NemuIpcCaptureMethod'),
     'DesktopDuplicationCaptureMethod': ('ok.device.capture', 'DesktopDuplicationCaptureMethod'),
@@ -339,7 +341,7 @@ class App(_OverlayConfigMixin):
         self.overlay_window = None
         self.main_window = None
         self.exit_event = exit_event
-        self.icon = QIcon(get_path_relative_to_exe(config.get('gui_icon')) or ":/icon/icon.ico")
+        self.icon = QIcon(get_path_relative_to_exe(resolve_gui_icon(config)))
 
         from ok.core.start_controller import StartController
         self.start_controller = StartController(self.config, exit_event)
@@ -702,6 +704,7 @@ class OK:
         import pyappify
         from ok.util.config import Config
 
+        config['gui_icon'] = resolve_gui_icon(config)
         self.exit_event = ExitEvent()
         self.config = config
         ui_config = resolve_ui_config(config)
@@ -719,10 +722,13 @@ class OK:
         default_start_method = _resolve('WINDOWS_START_METHOD_START')
         wgc_available = _resolve('windows_graphics_available')
 
+        self.args = parse_arguments()
+        use_gui = resolve_ui_config(config) is not None and not self.args.get('headless', False)
         if config.get('check_mutex', True):
-            if not check_mutex_fn():
+            acquired = check_mutex_fn(gui=True) if use_gui else check_mutex_fn()
+            if not acquired:
                 raise RuntimeError(
-                    'Another application instance is running. Close it before launching again.')
+                    'Another application instance is still running and could not be stopped safely.')
         og.ok = self
         if pyappify.app_version:
             config['version'] = pyappify.app_version
@@ -734,6 +740,8 @@ class OK:
         config['debug'] = config.get("debug", False)
         self.debug = config['debug']
         config_logger_fn(self.config)
+        from ok.core.plugin_staging import apply_pending_plugin_changes
+        self.plugin_change_results = apply_pending_plugin_changes()
         logger.info(f"ok-script init {config.get('version')}, {sys.argv}, pid={os.getpid()} config: {config}")
         if self.debug:
             logger.debug(f"environment contains {len(os.environ)} entries")
@@ -742,7 +750,6 @@ class OK:
         pyappify.logger = get_std_logger('pyappify')
         logger.info(
             f"pyappify  app_version:{pyappify.app_version}, app_profile:{pyappify.app_profile}, pyappify_version:{pyappify.pyappify_version} pyappify_upgradeable:{pyappify.pyappify_upgradeable}, pyappify_executable:{pyappify.pyappify_executable}")
-        self.args = parse_arguments()
         self._runtime_start_lock = threading.Lock()
         self._runtime_started = False
         self._mcp_server = None
@@ -758,7 +765,7 @@ class OK:
             capture_methods = windows_config.get('capture_method', [])
             available_methods = []
             for method in capture_methods:
-                if method == 'WGC':
+                if method in ('WGC', 'WGC_HDR'):
                     if wgc_available():
                         available_methods.append(method)
                 else:
@@ -842,7 +849,8 @@ class OK:
                 logger.debug('start app.exec()')
                 self.app.exec()
             else:
-                self.task_executor.start()
+                if self._mcp_server is None:
+                    self.task_executor.start()
                 try:
                     task_thread = threading.Thread(target=self.wait_task)
                     task_thread.start()
