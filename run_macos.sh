@@ -31,7 +31,7 @@ fi
 INSTALL_STAMP="$SCRIPT_DIR/.venv/.macos-dependencies"
 INSTALL_KEY="$EXTRAS:$(shasum -a 256 run_macos.sh requirements-macos.txt \
     ok-script/setup.py ok-script/pyproject.toml pyproject.toml | shasum -a 256)"
-export OK_SCRIPT_BUILD_VERSION=3.0.15b1+macos.1
+export OK_SCRIPT_BUILD_VERSION=3.0.15b2+macos.1
 if [[ ! -f "$INSTALL_STAMP" ]] || [[ "$(cat "$INSTALL_STAMP")" != "$INSTALL_KEY" ]]; then
     "$PYTHON_BIN" -m pip install --upgrade pip
     # The in-app updater installs the same file (see pyappify.yml).
