@@ -1,4 +1,4 @@
-# Python packages for the macOS port, for ok-script 3.0.15b1+macos.1.
+# Python packages for the macOS port, for ok-script 3.0.15b2+macos.1.
 #
 # run_macos.sh installs these on first launch and whenever this file changes.
 # The in-app updater installs them too: the "macOS" profile in pyappify.yml

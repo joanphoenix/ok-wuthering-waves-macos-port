@@ -361,6 +361,7 @@ def test_pynput_move_with_a_held_button_drags():
 def test_daily_task_explains_why_cultivation_target_is_unavailable():
     # CultivationTask is only loaded with a Simplified Chinese app language.
     from src.task.DailyTask import CULTIVATION_TARGET, DailyTask
+    from src.task.WWOneTimeTask import WWOneTimeTask
 
     task = DailyTask.__new__(DailyTask)
     task.config = {'Which to Farm': CULTIVATION_TARGET, 'Farm Nightmare Nest for Daily Echo': False}
@@ -372,7 +373,7 @@ def test_daily_task_explains_why_cultivation_target_is_unavailable():
     task.tr = lambda text: text
     task.open_daily = MagicMock(return_value=(0, False))
     task.get_task_by_class = MagicMock(return_value=None)
-    with patch.object(DailyTask.__mro__[1], 'run'), \
+    with patch.object(WWOneTimeTask, 'run'), \
             patch.object(DailyTask, 'logged_in', False, create=True):
         task.run()
     assert 'Simplified Chinese' in task.log_error.call_args_list[0].args[0]
